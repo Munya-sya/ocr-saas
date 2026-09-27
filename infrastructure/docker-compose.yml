@@ -1,6 +1,35 @@
-version: '3.8'
-
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ocr_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-ocr_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ocr_password}
+      - POSTGRES_DB=${POSTGRES_DB:-ocr_db}
+    volumes:
+      - ocr_postgres_data:/var/lib/postgresql/data
+    networks:
+      - ocr_network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ocr_user} -d ${POSTGRES_DB:-ocr_db}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ocr_redis
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD:-ocr_redis_secure_pass}
+    networks:
+      - ocr_network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-ocr_redis_secure_pass}", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ../backend
@@ -9,17 +38,55 @@ services:
     restart: always
     environment:
       - MAX_FILE_SIZE_MB=10
+      - MAX_PDF_MB=50
+      - MAX_PDF_PAGES=100
+      - OCR_TIMEOUT_SECONDS=300
+      - MAX_JOBS_PER_IP_PER_HOUR=30
       - CORS_ORIGINS=["http://localhost", "http://localhost:3000", "http://localhost:80"]
-      - TEMP_DIR=/tmp/ocr_uploads
+      - TEMP_UPLOAD_DIR=/tmp/ocr_uploads
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-ocr_user}:${POSTGRES_PASSWORD:-ocr_password}@postgres:5432/${POSTGRES_DB:-ocr_db}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-ocr_redis_secure_pass}@redis:6379/0
     volumes:
       - ocr_temp_data:/tmp/ocr_uploads
     networks:
       - ocr_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8000/api/v1/health || exit 1" ]
-      interval: 15s
+      test: [ "CMD-SHELL", "curl -f http://localhost:8000/health || python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1" ]
+      interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: ocr_worker
+    restart: always
+    command: celery -A app.worker.celery_app.celery_app worker --loglevel=info -c 4
+    environment:
+      - MAX_FILE_SIZE_MB=10
+      - MAX_PDF_MB=50
+      - MAX_PDF_PAGES=100
+      - OCR_TIMEOUT_SECONDS=300
+      - TEMP_UPLOAD_DIR=/tmp/ocr_uploads
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-ocr_user}:${POSTGRES_PASSWORD:-ocr_password}@postgres:5432/${POSTGRES_DB:-ocr_db}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-ocr_redis_secure_pass}@redis:6379/0
+    volumes:
+      - ocr_temp_data:/tmp/ocr_uploads
+    networks:
+      - ocr_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
 
   frontend:
     build:
@@ -50,6 +117,7 @@ services:
 
 volumes:
   ocr_temp_data:
+  ocr_postgres_data:
 
 networks:
   ocr_network:

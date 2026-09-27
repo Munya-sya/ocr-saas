@@ -21,7 +21,23 @@ export interface PreprocessOption {
     label: string;
 }
 
-export type ProcessingStage = 'idle' | 'uploading' | 'extracting' | 'complete' | 'failed';
+export type ProcessingStage = 'idle' | 'uploading' | 'extracting' | 'polling' | 'complete' | 'failed';
+
+export type JobStatusType = 'queued' | 'processing' | 'completed' | 'failed' | 'expired' | 'cancelled';
+
+export interface AsyncJobStatusResponse {
+    jobId: string;
+    filename: string;
+    status: JobStatusType;
+    fileType: string;
+    language: string;
+    psm: number;
+    preprocessMode: string;
+    pageCount: number;
+    processedPages: number;
+    errorMessage?: string;
+    processingMs: number;
+}
 
 export interface OCRProcessingState {
     file: File | null;

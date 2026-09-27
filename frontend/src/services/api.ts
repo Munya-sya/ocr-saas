@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { OCRResult, LanguageOption, PSMOption, PreprocessOption } from '../types';
+import { OCRResult, LanguageOption, PSMOption, PreprocessOption, AsyncJobStatusResponse } from '../types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -67,4 +67,51 @@ export async function submitOCRRequest(
         }
         throw new Error(error.message || 'Network error occurred while connecting to OCR backend server.');
     }
+}
+
+export async function submitAsyncJob(
+    file: File,
+    language: string = 'eng',
+    psm: number = 3,
+    preprocessMode: string = 'auto',
+    onUploadProgress?: (progressPercent: number) => void
+): Promise<{ jobId: string; filename: string; status: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('language', language);
+    formData.append('psm', psm.toString());
+    formData.append('preprocess_mode', preprocessMode);
+
+    try {
+        const response = await axios.post(`${API_BASE}/api/v1/jobs`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (progressEvent) => {
+                if (progressEvent.total && onUploadProgress) {
+                    const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    onUploadProgress(percent);
+                }
+            },
+        });
+        return response.data;
+    } catch (error: any) {
+        if (axios.isAxiosError(error) && error.response) {
+            const detail = error.response.data?.detail || error.response.statusText;
+            throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+        }
+        throw new Error(error.message || 'Error submitting asynchronous OCR job.');
+    }
+}
+
+export async function fetchJobStatus(jobId: string): Promise<AsyncJobStatusResponse> {
+    const response = await axios.get<AsyncJobStatusResponse>(`${API_BASE}/api/v1/jobs/${jobId}`);
+    return response.data;
+}
+
+export async function fetchJobResult(jobId: string): Promise<OCRResult> {
+    const response = await axios.get<OCRResult>(`${API_BASE}/api/v1/jobs/${jobId}/result`);
+    return response.data;
+}
+
+export async function cancelJob(jobId: string): Promise<void> {
+    await axios.delete(`${API_BASE}/api/v1/jobs/${jobId}`);
 }

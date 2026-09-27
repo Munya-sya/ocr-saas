@@ -5,8 +5,8 @@ from app.core.config import settings
 
 def ensure_temp_directory() -> str:
     """Ensures the temporary upload directory exists."""
-    os.makedirs(settings.TEMP_DIR, exist_ok=True)
-    return settings.TEMP_DIR
+    os.makedirs(settings.TEMP_UPLOAD_DIR, exist_ok=True)
+    return settings.TEMP_UPLOAD_DIR
 
 @contextmanager
 def temporary_upload_file(file_bytes: bytes, original_extension: str):
