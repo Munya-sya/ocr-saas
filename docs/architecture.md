@@ -1,20 +1,35 @@
-# System Architecture: OCR SaaS Monorepo
+# System Architecture: ScanText OCR SaaS Monorepo
 
 ## 1. High-Level Architecture Overview
 
-The **ocr-saas** application is a production-oriented, light-weight, anonymous Optical Character Recognition system designed for high performance, privacy, and user experience. 
+The **ocr-saas** platform is a full-featured Optical Character Recognition SaaS application engineered with a distributed, microservices-based architecture supporting synchronous and asynchronous OCR workflows, JWT authentication, tiered quota enforcement, Stripe subscription billing, and dynamic administrative control.
 
 ```mermaid
 flowchart TD
-    Client[Browser / Next.js Frontend] -->|HTTPS / REST API| Proxy[Nginx / Reverse Proxy]
-    Proxy -->|Pass request| Backend[FastAPI Backend Engine]
-    Backend -->|1. Validate Magic Bytes| Validator[Magic Bytes & Size Validator]
-    Validator -->|2. Save securely with UUID| TempStorage[Isolated Temp Storage /tmp/ocr_uploads]
-    TempStorage -->|3. Preprocess Image/PDF| Processing[OpenCV / Pillow / pdf2image]
-    Processing -->|4. Text Extraction| Tesseract[Tesseract OCR Engine]
-    Tesseract -->|5. Return Text| Backend
-    Backend -->|6. Auto-Cleanup Temp File| TempStorage
-    Backend -->|200 OK Response| Client
+    Client[Browser / Next.js 14 Client] -->|HTTP / HTTPS| Proxy[Nginx Reverse Proxy :80]
+    Proxy -->|/api/*| Backend[FastAPI Backend Engine :8000]
+    Proxy -->|/*| Frontend[Next.js Node SSR/Static Server :3000]
+
+    subgraph Core Services
+        Backend -->|Persist Users, Jobs, Settings| DB[(PostgreSQL 15)]
+        Backend -->|Task Enqueue & Cache| Redis[(Redis 7)]
+        Backend -->|Magic Byte & Size Check| Validator[Validator Service]
+        Validator -->|UUID Temp Buffering| TempStorage[/tmp/ocr_uploads/]
+        Backend -->|Immediate OCR < 10MB| Tesseract[Tesseract 5.x / OpenCV]
+    end
+
+    subgraph Async Worker Cluster
+        Redis -->|Celery Task Queue| Worker[Celery OCR Worker]
+        Beat[Celery Beat Scheduler] -->|Hourly/Daily Maintenance| Redis
+        Worker -->|Batch / Multi-Page PDF OCR| Tesseract
+        Worker -->|Update Job Status| DB
+    end
+
+    subgraph External Integrations
+        Backend -->|Hosted Checkout & Webhooks| Stripe[Stripe Billing & Dynamic Payment Methods]
+        Backend -->|Verification & Password Reset| Mailer[SMTP Mailer / Gmail / Mailpit]
+        Backend -->|OAuth2 SSO| Google[Google OAuth 2.0]
+    end
 ```
 
 ---
@@ -25,36 +40,29 @@ flowchart TD
 ocr-saas/
 ├── docs/
 │   ├── architecture.md           # System architecture, workflows, & design decisions
-│   ├── api-specification.md      # OpenAPI / REST API detail specs
-│   └── security-deployment.md    # Security model, temp file lifecycle, Docker setup
-├── frontend/                     # Next.js TypeScript Web App
-│   ├── src/
-│   │   ├── app/                  # Next.js App Router (Landing Page, Layout)
-│   │   ├── components/           # UI Components (Dropzone, Preview, Controls, Header)
-│   │   ├── hooks/                # Custom hooks (useOCR, useFileValidation)
-│   │   ├── services/             # API client services
-│   │   └── types/                # TypeScript interfaces and schemas
-│   ├── public/                   # Static assets & favicons
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── tailwind.config.js
+│   ├── api-specification.md      # OpenAPI / REST API detail specs & runbooks
+│   ├── security-deployment.md    # Security model, zero-plaintext secrets, & deployment
+│   └── test-verification-report.md # Comprehensive test execution report
+├── frontend/                     # Next.js 14 TypeScript Web App
+│   ├── src/app/                  # App Router pages (/pricing, /dashboard, /admin, etc.)
+│   ├── src/components/           # UI Components (Dropzone, Controls, QuotaExceededModal)
+│   ├── src/services/             # Axios API client wrapper
 │   └── Dockerfile
 ├── backend/                      # Python FastAPI Application
 │   ├── app/
-│   │   ├── api/                  # FastAPI routers (/ocr, /health, /languages)
-│   │   ├── core/                 # App configuration & env variables
-│   │   ├── services/             # Validation service, OCR engine, file manager
-│   │   ├── models/               # Pydantic request/response models
-│   │   └── main.py               # FastAPI entrypoint & CORS setup
-│   ├── tests/                    # pytest unit & integration test suite
+│   │   ├── api/                  # Auth, OCR, Jobs, Billing, Stripe Webhooks, Admin
+│   │   ├── core/                 # App configuration & JWT security utilities
+│   │   ├── db/                   # SQLAlchemy models, Alembic migrations, database session
+│   │   ├── services/             # Validation service, OCR engine, email delivery
+│   │   └── worker/               # Celery app, background OCR worker tasks, beat schedules
+│   ├── tests/                    # pytest suite (43 automated tests)
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── infrastructure/               # Container & Reverse Proxy Orchestration
-│   ├── nginx/
-│   │   └── default.conf          # Nginx routing & body limit configuration
-│   └── docker-compose.yml        # Orchestration for Frontend, Backend, and Nginx
-├── README.md                     # Comprehensive Setup & Quickstart Guide
-└── .env.example                  # Environment configuration template
+│   ├── nginx/default.conf        # Nginx routing & body limit configuration
+│   ├── .env.example              # Environment configuration template
+│   └── docker-compose.yml        # Orchestration for all 8 microservices
+└── README.md                     # Comprehensive Setup & Quickstart Guide
 ```
 
 ---
@@ -63,99 +71,39 @@ ocr-saas/
 
 | Tier | Technology | Purpose | Key Rationale |
 | :--- | :--- | :--- | :--- |
-| **Frontend** | Next.js 14+, TypeScript, Tailwind CSS | UI Landing Page & Client App | Fast server & client component rendering, zero-lag UI, responsive styles |
-| **Backend Framework** | Python 3.11+, FastAPI, Pydantic v2 | Async API Server | High performance async request handling, auto-generated OpenAPI docs |
-| **OCR Engine** | PyTesseract (Tesseract 5 OCR) | Character Extraction | Battle-tested, accurate open-source OCR supporting multi-language datasets |
-| **Image & PDF Processing**| OpenCV (`opencv-python-headless`), Pillow, `pdf2image` | Pre-processing | Grayscale conversion, thresholding, noise reduction, and PDF page rasterization |
-| **Validation** | Binary Magic Byte Matching | File Security | Prevents malicious executable uploads disguised as images/PDFs |
-| **Containerization** | Docker, Docker Compose, Nginx | Infrastructure | Standardized deployment environment with hardware library isolation |
+| **Frontend** | Next.js 14+, TypeScript, Tailwind CSS | UI Client Application | Fast SSR and static optimization, responsive dark mode design system |
+| **Backend Framework**| Python 3.11+, FastAPI, Pydantic v2 | Async API Server | High-performance asynchronous API, auto-generated OpenAPI documentation |
+| **Database** | PostgreSQL 15 | Relational Storage | Transactional guarantees for users, subscriptions, quotas, and audit logs |
+| **Message Broker** | Redis 7 | Distributed Queue & Cache | Sub-millisecond queue dispatching for Celery async OCR jobs and rate limiting |
+| **Background Workers**| Celery 5.3+ & Celery Beat | Task Processing & Cron | Offloads multi-page PDF processing and periodic cleanup from web threads |
+| **OCR Engine** | PyTesseract (Tesseract 5.x) | Character Extraction | Battle-tested, accurate open-source OCR supporting multi-language datasets |
+| **Image & PDF Engine**| OpenCV, Pillow, `pdf2image` | Pre-processing | Grayscale conversion, thresholding, noise reduction, and PDF rasterization |
+| **Billing Integration**| Stripe API (v16.0+) | Pro Tier Subscriptions | Dynamic Payment Methods (Cards, Apple Pay, Google Pay) with idempotent webhooks |
+| **Email Delivery** | Python `smtplib` / Mailpit / Gmail | Transactional Mail | Secure TLS/SSL SMTP with Google App Password support and live diagnostic probe |
+| **Reverse Proxy** | Nginx Alpine | Gateway & Security | TLS termination, gzip compression, rate limiting, and 50MB payload limits |
 
 ---
 
 ## 4. Security & Temporary File Lifecycle
 
-1. **Magic Byte Inspection**: Incoming byte streams are checked against known binary headers:
-   - `JPEG`: `FF D8 FF`
-   - `PNG`: `89 50 4E 47 0D 0A 1A 0A`
-   - `WEBP`: `52 49 46 46 ... 57 41 56 45 / 57 45 42 50`
-   - `PDF`: `%PDF-` (`25 50 44 46 2D`)
-2. **Path Obfuscation & UUID Isolation**: Files are assigned a random `uuid4()` string (e.g. `9f3c5b74-1234-4567-89ab-cdef01234567.tmp`) in `/tmp/ocr_uploads/`. Original user filenames are never written to disk or exposed in server logs.
-3. **Automated Destruction**: FastAPI `BackgroundTasks` + Python `try...finally` context managers guarantee file deletion immediately after OCR completes, preventing disk fill attacks.
-4. **Strict Payload Enforcers**: File size limit (`MAX_FILE_SIZE_MB`, default 10MB) is strictly enforced in both Nginx `client_max_body_size` and FastAPI stream checkers.
+1. **Binary Magic Byte Inspection**: Incoming byte streams are validated against known binary signatures (`JPEG`, `PNG`, `WEBP`, `PDF`) to prevent executable file execution attacks.
+2. **Path Obfuscation & UUID Isolation**: Files are assigned a random `uuid4()` name in `/tmp/ocr_uploads/`. Original user filenames are never written to disk.
+3. **Automated Destruction**: Python `try...finally` context managers and background cleanup routines guarantee immediate file deletion after OCR text extraction completes.
+4. **Secret Protection**: Stripe keys, Google OAuth secrets, and SMTP passwords are never exposed in plaintext in the Admin Console. Submitting masked values (`••••`) preserves existing secrets untouched.
+5. **HMAC Webhook Verification**: Stripe webhooks require valid `stripe-signature` verification with timestamp tolerance checks and database idempotency deduplication.
 
 ---
 
-## 5. API Contract Specifications
+## 5. Stripe Dynamic Payment Methods & Product Configuration
 
-### `POST /api/v1/ocr`
-Extracts text from an uploaded image or PDF file.
+* **Dynamic Payment Methods**: The backend omits `payment_method_types`, allowing Stripe to automatically present all payment methods enabled in the [Stripe Dashboard](https://dashboard.stripe.com/settings/payment_methods).
+* **Self-Serve Pro Plan**: $19.00/month recurring plan configured via Stripe Products (`price_1Q...`).
+* **Live Configuration**: Stored in PostgreSQL `SystemSetting` table and modifiable in real-time from `/admin`.
 
-- **Request Headers**: `Content-Type: multipart/form-data`
-- **Form Data Parameters**:
-  - `file`: `UploadFile` (Required) - Image or PDF file (`.jpg`, `.jpeg`, `.png`, `.webp`, `.pdf`).
-  - `language`: `string` (Optional) - OCR language code (`eng`, `deu`, `fra`, `spa`). Default: `eng`.
+---
 
-- **Response 200 OK** (`application/json`):
-```json
-{
-  "success": true,
-  "filename": "d3b07384-d113-42a6-a194-e0c18d343460.png",
-  "language": "eng",
-  "text": "Extracted text content from document...",
-  "page_count": 1,
-  "processing_time_ms": 342.5
-}
-```
+## 6. Email Mailer Infrastructure & Diagnostics
 
-- **Response 400 Bad Request** (Invalid magic bytes or corrupted file):
-```json
-{
-  "detail": "Invalid file format. Magic byte validation failed for detected signature."
-}
-```
-
-- **Response 413 Payload Too Large** (File size exceeds limit):
-```json
-{
-  "detail": "File size exceeds maximum allowed limit of 10 MB."
-}
-```
-
-- **Response 415 Unsupported Media Type** (Disallowed extension/MIME):
-```json
-{
-  "detail": "Unsupported file type. Allowed formats: JPG, JPEG, PNG, WEBP, PDF."
-}
-```
-
-- **Response 422 Unprocessable Entity** (Missing fields):
-```json
-{
-  "detail": "Validation error: 'file' parameter is required."
-}
-```
-
-### `GET /api/v1/health`
-Health check endpoint for container probes and deployment monitoring.
-- **Response 200 OK**:
-```json
-{
-  "status": "healthy",
-  "ocr_engine": "tesseract 5.x",
-  "version": "1.0.0"
-}
-```
-
-### `GET /api/v1/languages`
-Lists currently installed and available Tesseract language models.
-- **Response 200 OK**:
-```json
-{
-  "languages": [
-    {"code": "eng", "name": "English"},
-    {"code": "deu", "name": "German"},
-    {"code": "fra", "name": "French"},
-    {"code": "spa", "name": "Spanish"}
-  ]
-}
-```
+* **Local Development**: Mailpit catcher captures all registration and password reset links without contacting external networks (`http://localhost:8025`).
+* **Production Gmail**: Integrates via port 587 (`STARTTLS`) or 465 (`SSL`) using 16-character Google App Passwords.
+* **Live Admin Probe**: Direct diagnostic endpoint (`POST /api/v1/admin/smtp/test-connection`) verifies SMTP server connectivity and TLS handshakes on demand.

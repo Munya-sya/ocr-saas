@@ -1,0 +1,149 @@
+services:
+  vault-agent:
+    image: hashicorp/vault:1.15.6
+    container_name: ocr_vault_agent
+    restart: always
+    command: agent -config=/vault/agent/vault-agent.hcl
+    volumes:
+      - ./vault/agent/vault-agent.hcl:/vault/agent/vault-agent.hcl:ro
+      - ${SCANTEXT_AUTH_DIR:-/etc/scantext/auth}:/vault/auth:ro
+      - ./vault/certs:/vault/certs:ro
+      - ocr_vault_secrets:/vault/secrets
+    networks:
+      - ocr_network
+    healthcheck:
+      test: [ "CMD-SHELL", "[ -s /vault/secrets/secrets.json ] || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ${OCR_BACKEND_IMAGE:-ghcr.io/munya-sya/ocr-saas/backend:latest}
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: ocr_backend
+    restart: always
+    environment:
+      - ENVIRONMENT=production
+      - VAULT_SECRETS_FILE=/vault/secrets/secrets.json
+      - MAX_FILE_SIZE_MB=10
+      - MAX_PDF_MB=50
+      - MAX_PDF_PAGES=100
+      - ANONYMOUS_DAILY_CONVERSIONS=3
+      - FREE_DAILY_CONVERSIONS=3
+      - FREE_MAX_FILE_MB=10
+      - FREE_MAX_PDF_PAGES=5
+      - PRO_DAILY_CONVERSIONS=100
+      - PRO_MAX_FILE_MB=50
+      - PRO_MAX_PDF_PAGES=100
+      - OCR_TIMEOUT_SECONDS=300
+      - MAX_JOBS_PER_IP_PER_HOUR=30
+      - CORS_ORIGINS=["http://localhost", "http://localhost:3000", "http://localhost:80"]
+      - FRONTEND_URL=http://localhost
+      - TEMP_UPLOAD_DIR=/tmp/ocr_uploads
+      - SMTP_HOST=mailpit
+      - SMTP_PORT=1025
+    volumes:
+      - ocr_vault_secrets:/vault/secrets:ro
+      - ocr_temp_data:/tmp/ocr_uploads
+    networks:
+      - ocr_network
+    depends_on:
+      vault-agent:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8000/health || python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    image: ${OCR_BACKEND_IMAGE:-ghcr.io/munya-sya/ocr-saas/backend:latest}
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: ocr_worker
+    restart: always
+    # Concurrency tuned to 2 for Raspberry Pi ARM64 RAM/thermal management
+    command: celery -A app.worker.celery_app.celery_app worker --loglevel=info -c 2
+    environment:
+      - ENVIRONMENT=production
+      - VAULT_SECRETS_FILE=/vault/secrets/secrets.json
+      - MAX_FILE_SIZE_MB=10
+      - MAX_PDF_MB=50
+      - MAX_PDF_PAGES=100
+      - ANONYMOUS_DAILY_CONVERSIONS=3
+      - FREE_DAILY_CONVERSIONS=3
+      - FREE_MAX_FILE_MB=10
+      - FREE_MAX_PDF_PAGES=5
+      - OCR_TIMEOUT_SECONDS=300
+      - TEMP_UPLOAD_DIR=/tmp/ocr_uploads
+    volumes:
+      - ocr_vault_secrets:/vault/secrets:ro
+      - ocr_temp_data:/tmp/ocr_uploads
+    networks:
+      - ocr_network
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  beat:
+    image: ${OCR_BACKEND_IMAGE:-ghcr.io/munya-sya/ocr-saas/backend:latest}
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: ocr_beat
+    restart: always
+    command: celery -A app.worker.celery_app.celery_app beat --loglevel=info
+    environment:
+      - ENVIRONMENT=production
+      - VAULT_SECRETS_FILE=/vault/secrets/secrets.json
+      - TEMP_UPLOAD_DIR=/tmp/ocr_uploads
+    volumes:
+      - ocr_vault_secrets:/vault/secrets:ro
+      - ocr_temp_data:/tmp/ocr_uploads
+    networks:
+      - ocr_network
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  frontend:
+    image: ${OCR_FRONTEND_IMAGE:-ghcr.io/munya-sya/ocr-saas/frontend:latest}
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: ocr_frontend
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
+    networks:
+      - ocr_network
+    depends_on:
+      - backend
+
+  proxy:
+    image: ${OCR_PROXY_IMAGE:-ghcr.io/munya-sya/ocr-saas/proxy:latest}
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: ocr_proxy
+    restart: always
+    ports:
+      - "80:80"
+    networks:
+      - ocr_network
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  ocr_vault_secrets:
+  ocr_temp_data:
+
+networks:
+  ocr_network:
+    external: true

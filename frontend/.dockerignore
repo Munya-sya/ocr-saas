@@ -1,0 +1,29 @@
+# Frontend Docker Ignore
+# Exclude local node_modules, build cache, and secrets
+
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Local environment and secrets
+.env*.local
+.env
+!.env.example
+
+# Git and IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Logs and debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Test files
+coverage/
+cypress/

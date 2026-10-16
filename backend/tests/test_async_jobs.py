@@ -4,7 +4,8 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw
 from app.main import app
-from app.db.database import init_db
+from app.db.database import init_db, SessionLocal
+from app.db.models import DailyUsage, OCRJob
 from app.worker.tasks import process_job_pipeline
 
 client = TestClient(app)
@@ -12,6 +13,14 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def setup_test_db():
     init_db()
+    db = SessionLocal()
+    try:
+        db.query(DailyUsage).delete()
+        db.query(OCRJob).delete()
+        db.commit()
+    finally:
+        db.close()
+    client.cookies.clear()
 
 def create_sample_png_bytes(text: str = "Async Test Job Passed"):
     img = Image.new("RGB", (500, 150), color=(255, 255, 255))

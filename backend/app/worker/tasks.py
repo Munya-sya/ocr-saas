@@ -3,11 +3,17 @@ import time
 import datetime
 from PIL import Image
 from app.worker.celery_app import celery_app
-from app.db.database import SessionLocal
+from app.db.database import SessionLocal, init_db
 from app.db.models import OCRJob, JobStatus
 from app.core.config import settings
 from app.services.pdf_engine import process_pdf_file
 from app.services.ocr_engine import perform_ocr_on_pil_image
+
+# Ensure schema migrations (like user_id column) run automatically on worker startup
+try:
+    init_db()
+except Exception as e:
+    print(f"[Worker DB Init Notice] {e}")
 
 def process_job_pipeline(job_id: str):
     """Executes OCR job pipeline synchronously inside worker context."""
@@ -102,7 +108,9 @@ def cleanup_expired_jobs():
                     os.remove(job.secure_path)
                 except Exception:
                     pass
+            job.text_result = None  # Zero-Retention: wipe plaintext extracted text from DB
             job.status = JobStatus.EXPIRED
+            job.updated_at = now
         db.commit()
     except Exception:
         db.rollback()

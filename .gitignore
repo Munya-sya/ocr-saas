@@ -54,6 +54,9 @@ yarn-error.log*
 /tmp/
 /tmp/ocr_uploads/
 *.tmp
+*.db
+test_*.db
+build_log.txt
 
 # Operating System Files
 .DS_Store

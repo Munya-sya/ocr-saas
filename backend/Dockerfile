@@ -1,4 +1,9 @@
-FROM python:3.11-slim
+# ==============================================================================
+# ScanText OCR SaaS: Hardened Production Backend Dockerfile (ARM64 & AMD64)
+# Debian 12 Bookworm slim base matching Raspberry Pi OS 64-bit
+# ==============================================================================
+
+FROM python:3.11-slim-bookworm
 
 # Prevent Python from writing bytecode and buffer stdout/stderr
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -29,7 +34,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Create temporary upload directory and set permissions for appuser
 RUN mkdir -p /tmp/ocr_uploads && chown -R appuser:appuser /tmp/ocr_uploads /app
 
-# Copy application source code and transfer ownership
+# Copy application source code (filtered strictly by .dockerignore)
 COPY . .
 RUN chown -R appuser:appuser /app
 
@@ -38,4 +43,7 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK --interval=15s --timeout=5s --retries=3 --start-period=10s \
+  CMD curl -f http://localhost:8000/health || exit 1
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]

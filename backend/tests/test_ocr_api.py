@@ -1,9 +1,24 @@
+import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 from app.main import app
 from app.core.config import settings
+from app.db.database import init_db, SessionLocal
+from app.db.models import DailyUsage, OCRJob
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True)
+def setup_test_db():
+    init_db()
+    db = SessionLocal()
+    try:
+        db.query(DailyUsage).delete()
+        db.query(OCRJob).delete()
+        db.commit()
+    finally:
+        db.close()
+    client.cookies.clear()
 
 def test_root_health_endpoint():
     response = client.get("/health")

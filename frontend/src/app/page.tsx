@@ -8,9 +8,11 @@ import { FilePreview } from '../components/FilePreview';
 import { OCRControls } from '../components/OCRControls';
 import { ResultArea } from '../components/ResultArea';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { fetchSupportedLanguages, submitOCRRequest, submitAsyncJob, fetchJobStatus, fetchJobResult, cancelJob } from '../services/api';
-import { LanguageOption, OCRResult, ProcessingStage, AsyncJobStatusResponse } from '../types';
+import { AdSlot } from '../components/AdSlot';
+import { fetchSupportedLanguages, submitOCRRequest, submitAsyncJob, fetchJobStatus, fetchJobResult, cancelJob, getCurrentUserProfile } from '../services/api';
+import { LanguageOption, OCRResult, ProcessingStage, AsyncJobStatusResponse, User } from '../types';
 import { ShieldCheck, Zap, FileCode, CheckCircle, Clock, Loader2, XCircle } from 'lucide-react';
+import { QuotaExceededModal } from '../components/QuotaExceededModal';
 
 export default function Home() {
     const [file, setFile] = useState<File | null>(null);
@@ -31,10 +33,18 @@ export default function Home() {
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<OCRResult | null>(null);
 
+    // Quota Exceeded Modal State
+    const [showQuotaModal, setShowQuotaModal] = useState<boolean>(false);
+    const [quotaModalMsg, setQuotaModalMsg] = useState<string>('');
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+
     useEffect(() => {
         fetchSupportedLanguages().then((langs) => {
             if (langs && langs.length > 0) setLanguages(langs);
         });
+        getCurrentUserProfile()
+            .then((res) => setCurrentUser(res.user))
+            .catch(() => setCurrentUser(null));
     }, []);
 
     // Polling effect for async PDF & batch jobs
@@ -135,7 +145,13 @@ export default function Home() {
                 setStage('polling');
             } catch (err: any) {
                 setStage('failed');
-                setError(err.message || 'An error occurred submitting the PDF OCR job.');
+                const errMsg = err.message || 'An error occurred submitting the PDF OCR job.';
+                if (errMsg.toLowerCase().includes('quota') || errMsg.toLowerCase().includes('conversions reached') || errMsg.toLowerCase().includes('429')) {
+                    setQuotaModalMsg(errMsg);
+                    setShowQuotaModal(true);
+                } else {
+                    setError(errMsg);
+                }
             }
         } else {
             // Synchronous Image OCR Pipeline
@@ -156,7 +172,13 @@ export default function Home() {
                 setResult(res);
             } catch (err: any) {
                 setStage('failed');
-                setError(err.message || 'An unexpected error occurred during OCR text extraction.');
+                const errMsg = err.message || 'An unexpected error occurred during OCR text extraction.';
+                if (errMsg.toLowerCase().includes('quota') || errMsg.toLowerCase().includes('conversions reached') || errMsg.toLowerCase().includes('429')) {
+                    setQuotaModalMsg(errMsg);
+                    setShowQuotaModal(true);
+                } else {
+                    setError(errMsg);
+                }
             }
         }
     };
@@ -223,8 +245,8 @@ export default function Home() {
                                 className="bg-blue-600 h-full transition-all duration-300"
                                 style={{
                                     width: `${asyncStatus?.pageCount
-                                            ? Math.round(((asyncStatus.processedPages || 1) / asyncStatus.pageCount) * 100)
-                                            : 25
+                                        ? Math.round(((asyncStatus.processedPages || 1) / asyncStatus.pageCount) * 100)
+                                        : 25
                                         }%`,
                                 }}
                             />
@@ -243,6 +265,7 @@ export default function Home() {
                             onFileSelect={handleFileSelect}
                             onError={(msg) => setError(msg)}
                             disabled={stage === 'uploading' || stage === 'extracting' || stage === 'polling'}
+                            maxSizeMb={currentUser?.planTier === 'pro' ? 50 : 10}
                         />
                     ) : (
                         <div className="space-y-6">
@@ -269,20 +292,34 @@ export default function Home() {
                         </div>
                     )}
 
+                    {/* Ad Placement 1: Strictly Below Upload Form & Controls (Separated from action buttons) */}
+                    <AdSlot placement="below-upload" user={currentUser} />
+
                     {/* OCR Result View */}
                     {result && (
-                        <ResultArea
-                            result={result}
-                            onClear={() => {
-                                setResult(null);
-                                setStage('idle');
-                            }}
-                        />
+                        <div className="space-y-6">
+                            <ResultArea
+                                result={result}
+                                onClear={() => {
+                                    setResult(null);
+                                    setStage('idle');
+                                }}
+                            />
+
+                            {/* Ad Placement 2: Strictly Below Completed Results (Separated from Copy/Download/Clear) */}
+                            <AdSlot placement="below-results" user={currentUser} />
+                        </div>
                     )}
                 </section>
             </main>
 
             <Footer />
+
+            <QuotaExceededModal
+                isOpen={showQuotaModal}
+                onClose={() => setShowQuotaModal(false)}
+                message={quotaModalMsg}
+            />
         </div>
     );
 }

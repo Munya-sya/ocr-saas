@@ -1,0 +1,12 @@
+[Unit]
+Description=Run ScanText OCR SaaS deployment check every 10 minutes
+After=network.target
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "release_tag": "v3.1.0",
+  "commit_sha": "02f61d5e92cb4f9ca781099d9779502012345678",
+  "short_sha": "02f61d5",
+  "built_at": "2026-10-16T16:00:00Z",
+  "images": {
+    "backend": {
+      "image": "ghcr.io/munya-sya/ocr-saas/backend:02f61d5",
+      "digest": "sha256:d5a6b7c8e9f0123456789abcdef0123456789abcdef0123456789abcdef01234"
+    },
+    "frontend": {
+      "image": "ghcr.io/munya-sya/ocr-saas/frontend:02f61d5",
+      "digest": "sha256:e6b7c8d9a0f123456789abcdef0123456789abcdef0123456789abcdef01235"
+    },
+    "proxy": {
+      "image": "ghcr.io/munya-sya/ocr-saas/proxy:02f61d5",
+      "digest": "sha256:f7c8d9e0b1f23456789abcdef0123456789abcdef0123456789abcdef01236"
+    }
+  }
+}

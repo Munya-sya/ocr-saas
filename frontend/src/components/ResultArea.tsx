@@ -20,15 +20,55 @@ export const ResultArea: React.FC<ResultAreaProps> = ({ result, onClear }) => {
 
     const handleCopy = async () => {
         try {
-            await navigator.clipboard.writeText(text);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch (err) {
-            console.error('Failed to copy text', err);
+            if (navigator?.clipboard?.writeText) {
+                await navigator.clipboard.writeText(text);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } else {
+                // Fallback for non-secure HTTP or restricted browser permissions
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                if (successful) {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                } else {
+                    alert('Could not automatically copy text. Please select and copy manually.');
+                }
+            }
+        } catch {
+            // Secondary fallback attempt
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch {
+                alert('Could not copy text to clipboard. Please copy manually from the text box.');
+            }
         }
     };
 
     const handleDownload = () => {
+        if (!text.trim()) {
+            alert('Extracted text is empty. Nothing to download.');
+            return;
+        }
         const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');

@@ -19,5 +19,11 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
     task_time_limit=settings.OCR_TIMEOUT_SECONDS,
-    broker_connection_retry_on_startup=True
+    broker_connection_retry_on_startup=True,
+    beat_schedule={
+        "cleanup-expired-jobs-every-15-mins": {
+            "task": "app.worker.tasks.cleanup_expired_jobs",
+            "schedule": 900.0,
+        },
+    },
 )

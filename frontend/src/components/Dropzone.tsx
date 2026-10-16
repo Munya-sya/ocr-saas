@@ -5,15 +5,16 @@ interface DropzoneProps {
     onFileSelect: (file: File) => void;
     onError: (errorMessage: string) => void;
     disabled?: boolean;
+    maxSizeMb?: number;
 }
 
 const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
-const MAX_FILE_SIZE_MB = 10;
 
 export const Dropzone: React.FC<DropzoneProps> = ({
     onFileSelect,
     onError,
     disabled = false,
+    maxSizeMb = 10,
 }) => {
     const [isDragOver, setIsDragOver] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -26,8 +27,8 @@ export const Dropzone: React.FC<DropzoneProps> = ({
             return;
         }
 
-        if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-            onError(`File size (${(file.size / (1024 * 1024)).toFixed(2)} MB) exceeds maximum allowed limit of ${MAX_FILE_SIZE_MB} MB.`);
+        if (file.size > maxSizeMb * 1024 * 1024) {
+            onError(`File size (${(file.size / (1024 * 1024)).toFixed(2)} MB) exceeds maximum allowed limit of ${maxSizeMb} MB.`);
             return;
         }
 
@@ -112,7 +113,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                     <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200">
                         PDF
                     </span>
-                    <span className="text-xs text-slate-400 ml-2">Max {MAX_FILE_SIZE_MB}MB</span>
+                    <span className="text-xs text-slate-400 ml-2">Max {maxSizeMb}MB</span>
                 </div>
             </div>
         </div>

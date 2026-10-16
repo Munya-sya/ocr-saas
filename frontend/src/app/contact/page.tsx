@@ -7,6 +7,9 @@ import { Mail, MessageSquare, Globe } from 'lucide-react';
 export const metadata = {
     title: 'Contact Support | ScanText OCR SaaS',
     description: 'Get in touch with the ScanText OCR technical team.',
+    alternates: {
+        canonical: '/contact',
+    },
 };
 
 export default function ContactPage() {

@@ -29,7 +29,7 @@ def detect_file_type_by_magic_bytes(header_bytes: bytes) -> str | None:
     return None
 
 
-def validate_upload_file(filename: str, header_bytes: bytes, file_size_bytes: int):
+def validate_upload_file(filename: str, header_bytes: bytes, file_size_bytes: int, max_file_size_mb: int | None = None):
     """
     Enforces extension allowed, magic bytes matching, and size limits.
     Raises HTTPException with appropriate status codes if invalid.
@@ -42,12 +42,19 @@ def validate_upload_file(filename: str, header_bytes: bytes, file_size_bytes: in
             detail=f"Unsupported file extension '{ext}'. Allowed extensions: {', '.join(sorted(settings.ALLOWED_EXTENSIONS))}"
         )
 
-    # 2. File size check
-    max_bytes = settings.MAX_FILE_SIZE_MB * 1024 * 1024
+    # 2. File size check (PDFs support up to MAX_PDF_MB; images up to MAX_FILE_SIZE_MB)
+    if max_file_size_mb is not None:
+        effective_max_mb = max_file_size_mb
+    elif ext == ".pdf":
+        effective_max_mb = getattr(settings, "MAX_PDF_MB", 50)
+    else:
+        effective_max_mb = settings.MAX_FILE_SIZE_MB
+
+    max_bytes = effective_max_mb * 1024 * 1024
     if file_size_bytes > max_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File size ({file_size_bytes / (1024 * 1024):.2f} MB) exceeds maximum allowed limit of {settings.MAX_FILE_SIZE_MB} MB."
+            detail=f"File size ({file_size_bytes / (1024 * 1024):.2f} MB) exceeds maximum allowed limit of {effective_max_mb} MB."
         )
 
     # 3. Magic bytes signature check

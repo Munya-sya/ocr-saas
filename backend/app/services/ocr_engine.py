@@ -5,6 +5,40 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 import pytesseract
+
+# Decompression Bomb Guard: Restrict maximum image pixels to 25 Megapixels (5000x5000)
+Image.MAX_IMAGE_PIXELS = 25_000_000
+
+def validate_image_security(file_path: str):
+    """
+    Verifies image headers without loading full pixel array into RAM,
+    protecting workers against pixel flood decompression bomb attacks.
+    """
+    try:
+        with Image.open(file_path) as img:
+            w, h = img.size
+            if w * h > Image.MAX_IMAGE_PIXELS:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Image dimensions ({w}x{h} = {w*h} pixels) exceed maximum allowed resolution limit (25 Megapixels)."
+                )
+            img.verify()
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Image dimensions exceed maximum allowed resolution limit (25 Megapixels)."
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        if "decompression bomb" in str(e).lower() or "pixels" in str(e).lower() or "exceed" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Image dimensions exceed maximum allowed resolution limit (25 Megapixels)."
+            )
+        # Suppress non-image files like PDF which are validated separately
+        pass
+
 from pdf2image import convert_from_path
 from fastapi import HTTPException, status
 from app.core.config import settings
@@ -97,10 +131,10 @@ def add_border_padding(cv_img: np.ndarray, padding: int = 20) -> np.ndarray:
 def apply_clahe_contrast(gray_img: np.ndarray) -> np.ndarray:
     """
     Applies Contrast Limited Adaptive Histogram Equalization (CLAHE)
-    to balance lighting across low-contrast images.
+    to balance lighting across low-contrast images and active UI selections.
     """
     try:
-        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
         return clahe.apply(gray_img)
     except Exception:
         return gray_img
@@ -110,9 +144,9 @@ def preprocess_image(cv_img: np.ndarray, mode: str = "auto") -> np.ndarray:
     """
     Advanced multi-stage image preprocessing pipeline:
     1. Skew angle correction (deskewing)
-    2. Rescaling low-DPI images
+    2. Rescaling low-DPI images for crisp 300 DPI Tesseract target
     3. CLAHE contrast enhancement & noise filtering
-    4. Adaptive / Otsu Binarization
+    4. Adaptive / Otsu Binarization with white/black auto-inversion
     5. White border margin padding
     """
     if mode == "raw":
@@ -129,26 +163,28 @@ def preprocess_image(cv_img: np.ndarray, mode: str = "auto") -> np.ndarray:
 
     # Step 3: Rescale low-resolution images for 300 DPI Tesseract target
     height, width = gray.shape[:2]
-    if width < 1200 or height < 1200:
-        scale = max(2.0, 1200.0 / min(width, height))
+    if width < 1500 or height < 1500:
+        scale = max(2.0, 1500.0 / min(width, height))
         gray = cv2.resize(gray, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
 
     if mode == "photo":
-        # Mode for photos/complex backgrounds: CLAHE + Bilateral Filter
         gray = apply_clahe_contrast(gray)
         filtered = cv2.bilateralFilter(gray, 9, 75, 75)
         _, thresh = cv2.threshold(filtered, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     elif mode == "document":
-        # Mode for scanned documents: Crisp Adaptive Thresholding
         denoised = cv2.medianBlur(gray, 3)
         thresh = cv2.adaptiveThreshold(
             denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
         )
     else:
-        # Default Auto Mode: CLAHE + Otsu Binarization
+        # Default Auto Mode: Contrast Equalization + Noise Reduction + Otsu
         enhanced = apply_clahe_contrast(gray)
-        denoised = cv2.medianBlur(enhanced, 3)
+        denoised = cv2.fastNlMeansDenoising(enhanced, h=10)
         _, thresh = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # Auto-invert if majority background is dark (e.g. white text on dark blue buttons)
+    if np.mean(thresh) < 127:
+        thresh = cv2.bitwise_not(thresh)
 
     # Step 5: Add 20px solid white border padding
     final_img = add_border_padding(thresh, padding=20)
@@ -158,6 +194,7 @@ def preprocess_image(cv_img: np.ndarray, mode: str = "auto") -> np.ndarray:
 def clean_extracted_text(text: str) -> str:
     """
     Cleans and normalizes extracted OCR text output:
+    - Strips UI bullet / radio button / checkbox artifacts (e.g. '© __', 'OQ', 'O', '(O)', 'O ')
     - Removes isolated stray artifact characters (e.g. lone '~', '^', '`', '|')
     - Normalizes consecutive blank lines
     - Strips leading/trailing whitespace
@@ -170,10 +207,27 @@ def clean_extracted_text(text: str) -> str:
 
     for line in lines:
         stripped = line.strip()
+        if not stripped:
+            cleaned_lines.append("")
+            continue
+
         # Filter out lone single-symbol noise lines (e.g. "~", "|", "`")
         if len(stripped) == 1 and not stripped.isalnum():
             continue
-        cleaned_lines.append(line.rstrip())
+
+        # Clean UI radio button & checkbox artifact noise at line start
+        # Matches symbols like '© __', 'OQ ', 'O ', 'O  ', '(O) ', 'O\t', '© '
+        cleaned = re.sub(
+            r'^(?:[©OQ0o\(\)\[\]\s_\-\.]{1,6})\s+(?=[A-Za-z0-9])',
+            '',
+            stripped
+        )
+
+        # Fallback strip for leading standalone bullet chars like 'O ' or 'Q '
+        if cleaned.startswith(('O ', 'Q ', '0 ', 'o ', '© ')):
+            cleaned = cleaned[2:].strip()
+
+        cleaned_lines.append(cleaned)
 
     result = "\n".join(cleaned_lines)
 
@@ -235,24 +289,48 @@ def process_ocr_request(
     try:
         ext = extension.lower()
         if ext == ".pdf":
-            images = convert_from_path(file_path)
-            if not images:
+            try:
+                from pypdf import PdfReader
+                reader = PdfReader(file_path)
+                total_pages = len(reader.pages)
+            except Exception as pe:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Corrupted or invalid PDF file: {str(pe)}"
+                )
+
+            if total_pages > settings.MAX_PDF_PAGES:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"PDF page count ({total_pages}) exceeds maximum allowed limit of {settings.MAX_PDF_PAGES} pages."
+                )
+
+            extracted_pages = []
+            for i in range(1, total_pages + 1):
+                page_imgs = convert_from_path(file_path, first_page=i, last_page=i)
+                if page_imgs:
+                    p_img = page_imgs[0]
+                    if p_img.width * p_img.height > Image.MAX_IMAGE_PIXELS:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"PDF page {i} dimensions exceed maximum allowed resolution limit ({Image.MAX_IMAGE_PIXELS} pixels)."
+                        )
+                    page_text = perform_ocr_on_pil_image(
+                        p_img, language, psm=psm, preprocess_mode=preprocess_mode
+                    )
+                    extracted_pages.append(f"--- Page {i} ---\n{page_text}")
+
+            if not extracted_pages:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="PDF file contains no readable pages."
                 )
 
-            extracted_pages = []
-            for i, page_img in enumerate(images, start=1):
-                page_text = perform_ocr_on_pil_image(
-                    page_img, language, psm=psm, preprocess_mode=preprocess_mode
-                )
-                extracted_pages.append(f"--- Page {i} ---\n{page_text}")
-
             full_text = "\n\n".join(extracted_pages)
-            return full_text, len(images)
+            return full_text, total_pages
 
         else:
+            validate_image_security(file_path)
             with Image.open(file_path) as pil_img:
                 text = perform_ocr_on_pil_image(
                     pil_img, language, psm=psm, preprocess_mode=preprocess_mode

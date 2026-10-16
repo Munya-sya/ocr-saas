@@ -1,0 +1,43 @@
+# Backend Docker Ignore
+# Exclude host virtual environment, cache, test files, and secrets
+
+# Virtual environment (CRITICAL: prevents host Windows venv from corrupting Linux container)
+venv/
+.venv/
+env/
+ENV/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local configuration & secrets
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+
+# Local database and uploads
+*.db
+*.sqlite
+*.sqlite3
+/tmp/ocr_uploads/*
+!/tmp/ocr_uploads/.gitkeep
+
+# Git & IDE files
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+
+# Documentation & Scratch files
+docs/
+scratch/
+tests/
