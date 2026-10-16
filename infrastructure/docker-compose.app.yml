@@ -3,6 +3,8 @@ services:
     image: hashicorp/vault:1.15.6
     container_name: ocr_vault_agent
     restart: always
+    cap_add:
+      - IPC_LOCK
     command: agent -config=/vault/agent/vault-agent.hcl
     volumes:
       - ./vault/agent/vault-agent.hcl:/vault/agent/vault-agent.hcl:ro

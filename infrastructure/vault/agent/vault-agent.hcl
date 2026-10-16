@@ -2,7 +2,8 @@
 # Renders restricted runtime JSON configuration for API & Worker containers
 
 exit_after_auth = false
-pid_file = "/tmp/vault-agent.pid"
+pid_file        = "/tmp/vault-agent.pid"
+disable_mlock   = true
 
 vault {
   address = "https://vault:8200"
@@ -28,10 +29,6 @@ auto_auth {
       mode = 0644
     }
   }
-}
-
-cache {
-  use_auto_auth_token = true
 }
 
 # Template: Renders API and Worker application runtime secrets
