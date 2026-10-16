@@ -1,27 +1,29 @@
 #!/bin/sh
 # Interactive Vault Unseal Helper for Raspberry Pi
-# Prompts for Shamir key shares to unseal local Vault server
+# Supports running both from the host terminal and inside the container
 
 set -e
+
+# Check if running inside container or on the Pi host
+if command -v vault >/dev/null 2>&1; then
+  VAULT_BIN="vault"
+else
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  REPO_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+  cd "$REPO_DIR"
+  VAULT_BIN="docker compose -f infrastructure/docker-compose.infra.yml exec -T vault vault"
+fi
 
 if [ -z "$VAULT_ADDR" ]; then
   export VAULT_ADDR="https://127.0.0.1:8200"
 fi
 
-if [ -z "$VAULT_CACERT" ]; then
-  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-  if [ -f "$SCRIPT_DIR/../certs/ca.crt" ]; then
-    export VAULT_CACERT="$SCRIPT_DIR/../certs/ca.crt"
-  elif [ -f "/vault/certs/ca.crt" ]; then
-    export VAULT_CACERT="/vault/certs/ca.crt"
-  fi
-fi
-
 echo "Connecting to Vault at $VAULT_ADDR..."
 
-STATUS=$(vault status -format=json 2>/dev/null || true)
+STATUS=$($VAULT_BIN status -format=json 2>/dev/null || true)
 if [ -z "$STATUS" ]; then
-  echo "Error: Unable to connect to Vault at $VAULT_ADDR. Ensure the container is running."
+  echo "Error: Unable to connect to Vault at $VAULT_ADDR. Ensure the container is running:"
+  echo "  docker compose -f infrastructure/docker-compose.infra.yml ps"
   exit 1
 fi
 
@@ -51,13 +53,17 @@ while [ "$SEALED" = "true" ]; do
     exit 1
   fi
 
-  vault operator unseal "$UNSEAL_KEY"
+  $VAULT_BIN operator unseal "$UNSEAL_KEY" > /dev/null
 
-  STATUS=$(vault status -format=json)
+  STATUS=$($VAULT_BIN status -format=json)
   SEALED=$(echo "$STATUS" | grep -o '"sealed":[^,]*' | cut -d: -f2 | tr -d ' "')
   if [ "$SEALED" = "false" ]; then
     echo ""
-    echo "SUCCESS: Vault unsealed successfully!"
+    echo "========================================="
+    echo " SUCCESS: Vault unsealed successfully!   "
+    echo "========================================="
     break
   fi
+  CURRENT_PROGRESS=$(echo "$STATUS" | grep -o '"progress":[^,]*' | cut -d: -f2 | tr -d ' "')
+  echo "Key accepted! Progress: $CURRENT_PROGRESS/$THRESHOLD"
 done
