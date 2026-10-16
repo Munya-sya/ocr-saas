@@ -25,7 +25,7 @@ auto_auth {
   sink "file" {
     config = {
       path = "/vault/secrets/token"
-      mode = 0600
+      mode = 0644
     }
   }
 }
@@ -55,5 +55,5 @@ template {
   {{ end }}
   EOF
   destination = "/vault/secrets/secrets.json"
-  perms       = "0600"
+  perms       = "0644"
 }
