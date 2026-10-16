@@ -21,7 +21,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-RUN npm run build
+RUN mkdir -p public && npm run build
 
 # 4. Production Runner Stage: Minimal non-root runtime container
 FROM node:18-alpine AS runner
