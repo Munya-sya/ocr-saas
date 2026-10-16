@@ -8,6 +8,15 @@ if [ -z "$VAULT_ADDR" ]; then
   export VAULT_ADDR="https://127.0.0.1:8200"
 fi
 
+if [ -z "$VAULT_CACERT" ]; then
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  if [ -f "$SCRIPT_DIR/../certs/ca.crt" ]; then
+    export VAULT_CACERT="$SCRIPT_DIR/../certs/ca.crt"
+  elif [ -f "/vault/certs/ca.crt" ]; then
+    export VAULT_CACERT="/vault/certs/ca.crt"
+  fi
+fi
+
 echo "Connecting to Vault at $VAULT_ADDR..."
 
 STATUS=$(vault status -format=json 2>/dev/null || true)
