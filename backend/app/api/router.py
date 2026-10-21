@@ -1,6 +1,7 @@
 import os
 import time
 import uuid
+import datetime
 from typing import Optional
 from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Depends, Request, status
 from pydantic import BaseModel, EmailStr, Field
@@ -230,9 +231,15 @@ async def extract_text_from_file(
 class InboundEmailPayload(BaseModel):
     from_email: Optional[str] = Field(None, alias="from")
     to_email: Optional[str] = Field(None, alias="to")
+    sender: Optional[str] = None
     subject: Optional[str] = ""
     text: Optional[str] = ""
     rawEmail: Optional[str] = None
+    raw_email: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+        extra = "allow" 
 
 
 @router.post("/support/inbound-webhook", tags=["Support"])
@@ -256,15 +263,16 @@ async def inbound_support_email_webhook(
     if client_secret and client_secret != inbound_secret:
         raise HTTPException(status_code=403, detail="Invalid inbound webhook secret.")
 
-    sender_email = (payload.from_email or "").strip().lower()
+    sender_email = (payload.from_email or payload.sender or "").strip().lower()
     email_match = re.search(r'[\w\.-]+@[\w\.-]+', sender_email)
     if email_match:
         sender_email = email_match.group(0)
 
     subject = payload.subject or ""
     body_text = payload.text or ""
-    if not body_text and payload.rawEmail:
-        body_text = payload.rawEmail[:4000]
+    raw_content = payload.rawEmail or payload.raw_email or ""
+    if not body_text and raw_content:
+        body_text = raw_content[:4000]
 
     # Clean quoted history if present (e.g. 'On Wed, Oct 21 ... wrote:')
     cleaned_reply = re.split(r'\n\s*On .* wrote:|\n\s*--- Original Message ---|\n\s*> ', body_text)[0].strip()

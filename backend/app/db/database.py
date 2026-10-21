@@ -69,6 +69,13 @@ def init_db():
                 if "current_period_end" not in existing_cols:
                     conn.execute(text("ALTER TABLE users ADD COLUMN current_period_end TIMESTAMP"))
 
+            if "contact_messages" in inspector.get_table_names():
+                existing_contact_cols = [c["name"] for c in inspector.get_columns("contact_messages")]
+                if "thread_history" not in existing_contact_cols:
+                    conn.execute(text("ALTER TABLE contact_messages ADD COLUMN thread_history TEXT"))
+                if "updated_at" not in existing_contact_cols:
+                    conn.execute(text("ALTER TABLE contact_messages ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+
             if "ocr_jobs" in inspector.get_table_names():
                 existing_job_cols = [c["name"] for c in inspector.get_columns("ocr_jobs")]
                 if "user_id" not in existing_job_cols:
