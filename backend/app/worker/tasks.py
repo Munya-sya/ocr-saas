@@ -1,3 +1,4 @@
+from app.services.email_service import send_admin_job_failure_alert, send_admin_daily_summary_report
 import os
 import time
 import datetime
@@ -85,6 +86,15 @@ def process_job_pipeline(job_id: str):
             job.error_message = str(err)
             job.updated_at = datetime.datetime.utcnow()
             db.commit()
+
+            try:
+                send_admin_job_failure_alert(
+                    job_id=job.job_id,
+                    filename=job.original_filename or "document",
+                    error_msg=str(err)
+                )
+            except Exception as alert_err:
+                print(f"[Worker Alert Error] {alert_err}")
     finally:
         db.close()
 
@@ -116,3 +126,9 @@ def cleanup_expired_jobs():
         db.rollback()
     finally:
         db.close()
+
+
+@celery_app.task(name="app.worker.tasks.send_daily_summary_report_task")
+def send_daily_summary_report_task():
+    """Compiles and emails the 24-hour executive summary report to the administrator."""
+    send_admin_daily_summary_report()

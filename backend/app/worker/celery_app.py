@@ -25,5 +25,9 @@ celery_app.conf.update(
             "task": "app.worker.tasks.cleanup_expired_jobs",
             "schedule": 900.0,
         },
+        "daily-ocr-performance-report": {
+            "task": "app.worker.tasks.send_daily_summary_report_task",
+            "schedule": 86400.0,  # Every 24 hours
+        },
     },
 )

@@ -26,6 +26,7 @@ class UpdateUserSchema(BaseModel):
     planTier: Optional[str] = None
     isAdmin: Optional[bool] = None
     isBanned: Optional[bool] = None
+    isVerified: Optional[bool] = None
 
 class SettingItemSchema(BaseModel):
     key: str
@@ -134,6 +135,10 @@ def update_user_status(
     if payload.isBanned is not None:
         target_user.is_banned = payload.isBanned
         changes.append(f"isBanned -> {payload.isBanned}")
+
+    if payload.isVerified is not None:
+        target_user.is_verified = payload.isVerified
+        changes.append(f"isVerified -> {payload.isVerified}")
 
     db.commit()
 

@@ -14,7 +14,7 @@ from pydantic import BaseModel, EmailStr
 from app.db.database import get_db
 from app.db.models import User, EmailVerificationToken, PasswordResetToken, DailyUsage, PlanTier, SystemSetting, AuditLog, OCRJob
 from app.core.security import hash_password, verify_password, create_access_token
-from app.services.email_service import send_verification_email, send_password_reset_email
+from app.services.email_service import send_verification_email, send_password_reset_email, send_admin_new_user_alert
 from app.services.captcha_service import verify_captcha_token
 from app.api.quota_middleware import get_current_user, check_auth_rate_limit, get_client_ip
 from app.core.config import settings
@@ -139,6 +139,11 @@ def google_callback(
         db.commit()
         db.refresh(user)
 
+        try:
+            send_admin_new_user_alert(user.email, "free (Google OAuth)")
+        except Exception as e:
+            print(f"[Admin Alert Notice] {e}")
+
     if user.is_banned:
         return RedirectResponse(url="/login?error=suspended", status_code=302)
 
@@ -222,8 +227,14 @@ def register_user(request: Request, payload: RegisterSchema, db: Session = Depen
     db.add(verify_token)
     db.commit()
 
-    # Send verification email via Mailpit
+    # Send verification email via Mailpit / SMTP
     send_verification_email(new_user.email, token_str)
+
+    # Send admin new user notification
+    try:
+        send_admin_new_user_alert(new_user.email, new_user.plan_tier.value)
+    except Exception as e:
+        print(f"[Admin Alert Notice] {e}")
 
     return {
         "message": "Registration successful. Please check your email to verify your account.",

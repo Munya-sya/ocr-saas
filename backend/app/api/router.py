@@ -14,7 +14,7 @@ from app.services.validator import validate_upload_file
 from app.services.file_manager import temporary_upload_file
 from app.services.ocr_engine import process_ocr_request
 from app.services.captcha_service import verify_captcha_token
-from app.services.email_service import send_contact_confirmation_email
+from app.services.email_service import send_contact_confirmation_email, send_admin_new_inquiry_alert
 from app.api.quota_middleware import get_current_user_optional, check_and_increment_quota, get_client_ip, enforce_distributed_rate_limit
 
 router = APIRouter()
@@ -113,6 +113,18 @@ async def submit_contact_form(
         )
     except Exception as e:
         print(f"[ContactForm Warning] Could not send confirmation email: {e}")
+
+    # Dispatch compact admin notification
+    try:
+        send_admin_new_inquiry_alert(
+            inquiry_id=contact_msg.id,
+            sender_name=contact_msg.name,
+            sender_email=contact_msg.email,
+            subject_text=contact_msg.subject,
+            message_preview=contact_msg.message
+        )
+    except Exception as e:
+        print(f"[Admin Inquiry Alert Warning] {e}")
 
     return {
         "message": "Thank you! Your message has been received. Our team will review and reply to your email shortly.",

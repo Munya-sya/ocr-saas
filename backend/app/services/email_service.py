@@ -151,7 +151,8 @@ def send_contact_confirmation_email(to_email: str, name: str, subject_text: str)
 def send_contact_reply_email(to_email: str, recipient_name: str, original_subject: str, reply_body: str, custom_subject: str | None = None):
     """Sends the administrator's reply directly to the user with Reply-To set to inquiry@scantext.dev."""
     subject = custom_subject or f"Re: {original_subject}"
-    formatted_body = "<br/>".join(reply_body.replace("
+    formatted_body = "<br/>".join(reply_body.replace("
+
 ", "
 ").split("
 "))
@@ -169,3 +170,160 @@ def send_contact_reply_email(to_email: str, recipient_name: str, original_subjec
     </div>
     """
     return send_smtp_email(to_email, subject, html_content, from_address="inquiry@scantext.dev", reply_to="inquiry@scantext.dev")
+
+def get_admin_recipient_email() -> str:
+    """Finds the primary administrator email address for receiving system alerts."""
+    db = SessionLocal()
+    try:
+        from app.db.models import User
+        setting = db.query(SystemSetting).filter(SystemSetting.key == "ADMIN_ALERT_EMAIL").first()
+        if setting and setting.value and "@" in setting.value:
+            return setting.value.strip()
+
+        admin_user = db.query(User).filter(User.is_admin == True).first()
+        if admin_user and admin_user.email:
+            return admin_user.email.strip()
+
+        return settings.INITIAL_ADMIN_EMAIL or "kennedyjr4323@gmail.com"
+    except Exception as e:
+        print(f"[EmailService Warning] Failed to query admin email: {e}")
+        return "kennedyjr4323@gmail.com"
+    finally:
+        db.close()
+
+def send_admin_new_inquiry_alert(inquiry_id: str, sender_name: str, sender_email: str, subject_text: str, message_preview: str):
+    """Sends a clean, compact notification to the Admin that a customer sent a message."""
+    admin_email = get_admin_recipient_email()
+    subject = f"[ScanText Alert] 💬 New Inquiry from {sender_name}: {subject_text[:50]}"
+    admin_url = f"{settings.FRONTEND_URL}/admin"
+    clean_preview = (message_preview[:280] + "...") if len(message_preview) > 280 else message_preview
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h3 style="color: #4f46e5; margin-top: 0;">New Support Inquiry Received</h3>
+        <p style="font-size: 14px; color: #334155;">A user just submitted an inquiry on ScanText OCR:</p>
+        <div style="background-color: #f8fafc; border-left: 4px solid #4f46e5; padding: 12px 16px; margin: 15px 0; border-radius: 4px; font-size: 13px;">
+            <p style="margin: 4px 0;"><strong>Sender:</strong> {sender_name} (&lt;{sender_email}&gt;)</p>
+            <p style="margin: 4px 0;"><strong>Subject:</strong> {subject_text}</p>
+            <p style="margin: 4px 0; color: #475569;"><strong>Message:</strong></p>
+            <p style="margin: 6px 0; font-style: italic; color: #1e293b;">"{clean_preview}"</p>
+        </div>
+        <div style="margin: 25px 0;">
+            <a href="{admin_url}" style="background-color: #4f46e5; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block;">Open Inquiries in Admin Console</a>
+        </div>
+        <p style="color: #94a3b8; font-size: 11px; margin-bottom: 0;">Inquiry ID: {inquiry_id} &bull; All conversations are stored in your ScanText App.</p>
+    </div>
+    """
+    send_smtp_email(admin_email, subject, html_content, from_address="noreply@scantext.dev", reply_to=sender_email)
+
+def send_admin_new_user_alert(user_email: str, plan_tier: str):
+    """Sends a notification to the Admin when a new user registers."""
+    import datetime
+    admin_email = get_admin_recipient_email()
+    subject = f"[ScanText Alert] 👤 New User Joined: {user_email}"
+    admin_url = f"{settings.FRONTEND_URL}/admin"
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h3 style="color: #059669; margin-top: 0;">New User Registration</h3>
+        <p style="font-size: 14px; color: #334155;">A new account was just created on ScanText OCR:</p>
+        <div style="background-color: #f0fdf4; border-left: 4px solid #059669; padding: 12px 16px; margin: 15px 0; border-radius: 4px; font-size: 13px;">
+            <p style="margin: 4px 0;"><strong>Email:</strong> {user_email}</p>
+            <p style="margin: 4px 0;"><strong>Tier:</strong> {plan_tier.upper()}</p>
+            <p style="margin: 4px 0;"><strong>Time:</strong> {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</p>
+        </div>
+        <div style="margin: 20px 0;">
+            <a href="{admin_url}" style="background-color: #059669; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block;">Manage Users in Admin Console</a>
+        </div>
+    </div>
+    """
+    send_smtp_email(admin_email, subject, html_content, from_address="noreply@scantext.dev", reply_to="noreply@scantext.dev")
+
+def send_admin_job_failure_alert(job_id: str, filename: str, error_msg: str):
+    """Sends an alert when an OCR queue job encounters a processing failure."""
+    admin_email = get_admin_recipient_email()
+    subject = f"[ScanText Alert] ⚠️ OCR Job Failed: {job_id[:8]}"
+    admin_url = f"{settings.FRONTEND_URL}/admin"
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h3 style="color: #dc2626; margin-top: 0;">OCR Processing Error Encountered</h3>
+        <p style="font-size: 14px; color: #334155;">An asynchronous OCR background job failed:</p>
+        <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 12px 16px; margin: 15px 0; border-radius: 4px; font-size: 13px;">
+            <p style="margin: 4px 0;"><strong>Job ID:</strong> {job_id}</p>
+            <p style="margin: 4px 0;"><strong>Document:</strong> {filename}</p>
+            <p style="margin: 4px 0; color: #b91c1c;"><strong>Error Details:</strong> {error_msg}</p>
+        </div>
+        <div style="margin: 20px 0;">
+            <a href="{admin_url}" style="background-color: #dc2626; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block;">Inspect OCR Queue & Status</a>
+        </div>
+    </div>
+    """
+    send_smtp_email(admin_email, subject, html_content, from_address="noreply@scantext.dev", reply_to="noreply@scantext.dev")
+
+def send_admin_daily_summary_report():
+    """Compiles a 24-hour summary of SaaS activity and emails the administrator."""
+    import datetime
+    db = SessionLocal()
+    admin_email = get_admin_recipient_email()
+    try:
+        from app.db.models import User, OCRJob, JobStatus, ContactMessage, ContactStatus
+        now = datetime.datetime.utcnow()
+        yesterday = now - datetime.timedelta(days=1)
+
+        total_users = db.query(User).count()
+        new_users_24h = db.query(User).filter(User.created_at >= yesterday).count()
+
+        jobs_24h = db.query(OCRJob).filter(OCRJob.created_at >= yesterday).count()
+        completed_24h = db.query(OCRJob).filter(OCRJob.created_at >= yesterday, OCRJob.status == JobStatus.COMPLETED).count()
+        failed_24h = db.query(OCRJob).filter(OCRJob.created_at >= yesterday, OCRJob.status == JobStatus.FAILED).count()
+
+        new_inquiries = db.query(ContactMessage).filter(ContactMessage.status == ContactStatus.NEW).count()
+
+        today_str = now.strftime('%Y-%m-%d')
+        subject = f"[ScanText Daily Report] 📊 {today_str}: {completed_24h} Conversions, {new_users_24h} New Users"
+        admin_url = f"{settings.FRONTEND_URL}/admin"
+
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h3 style="color: #2563eb; margin-top: 0;">ScanText OCR Daily Performance Report</h3>
+            <p style="font-size: 13px; color: #64748b;">Summary for {today_str} (Past 24 Hours):</p>
+            
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px;">
+                <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                    <th style="padding: 10px; text-align: left;">Metric</th>
+                    <th style="padding: 10px; text-align: right;">Count</th>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px; color: #334155;">Total Documents Processed</td>
+                    <td style="padding: 10px; text-align: right; font-weight: bold; color: #0284c7;">{jobs_24h}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px; color: #334155;">Successful Conversions</td>
+                    <td style="padding: 10px; text-align: right; font-weight: bold; color: #16a34a;">{completed_24h}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px; color: #334155;">Failed OCR Jobs</td>
+                    <td style="padding: 10px; text-align: right; font-weight: bold; color: {'#dc2626' if failed_24h > 0 else '#16a34a'};">{failed_24h}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px; color: #334155;">New User Registrations</td>
+                    <td style="padding: 10px; text-align: right; font-weight: bold; color: #4f46e5;">+{new_users_24h}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px; color: #334155;">Total Registered Members</td>
+                    <td style="padding: 10px; text-align: right; font-weight: bold; color: #1e293b;">{total_users}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; color: #334155;">Pending Customer Inquiries</td>
+                    <td style="padding: 10px; text-align: right; font-weight: bold; color: {'#ea580c' if new_inquiries > 0 else '#64748b'};">{new_inquiries}</td>
+                </tr>
+            </table>
+
+            <div style="margin: 20px 0;">
+                <a href="{admin_url}" style="background-color: #2563eb; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block;">Open Production Admin Console</a>
+            </div>
+        </div>
+        """
+        send_smtp_email(admin_email, subject, html_content, from_address="noreply@scantext.dev", reply_to="noreply@scantext.dev")
+    except Exception as e:
+        print(f"[Daily Summary Error] {e}")
+    finally:
+        db.close()
