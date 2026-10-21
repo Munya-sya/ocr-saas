@@ -3203,27 +3203,74 @@ export default function AdminPage() {
                                         </div>
                                     </div>
 
-                                    {/* Original Customer Message */}
-                                    <div className="space-y-1.5">
-                                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Customer Message</span>
-                                        <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">
-                                            {selectedContact.message}
+                                    {/* Conversational Message Timeline */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
+                                                Conversation Thread ({selectedContact.threadHistory?.length || (selectedContact.replyMessage ? 2 : 1)} Messages)
+                                            </span>
+                                            <span className="text-[11px] text-slate-500 font-mono">
+                                                Ref: [Ticket #{selectedContact.id.slice(0, 8)}]
+                                            </span>
+                                        </div>
+
+                                        <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                                            {selectedContact.threadHistory && selectedContact.threadHistory.length > 0 ? (
+                                                selectedContact.threadHistory.map((item, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        className={`p-4 rounded-2xl border text-sm leading-relaxed space-y-1.5 ${
+                                                            item.sender === 'staff'
+                                                                ? 'bg-violet-950/40 border-violet-800/60 ml-6 text-violet-100'
+                                                                : 'bg-slate-950 border-slate-800 mr-6 text-slate-200'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center justify-between text-xs">
+                                                            <div className="flex items-center gap-1.5 font-bold">
+                                                                {item.sender === 'staff' ? (
+                                                                    <>
+                                                                        <span className="px-1.5 py-0.5 bg-violet-600 text-white rounded text-[10px] uppercase tracking-wider">Support</span>
+                                                                        <span className="text-violet-300">ScanText Support &bull; inquiry@scantext.dev</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <span className="px-1.5 py-0.5 bg-slate-700 text-slate-200 rounded text-[10px] uppercase tracking-wider">Client</span>
+                                                                        <span className="text-white">{item.name} &lt;{item.email}&gt;</span>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                            <span className="text-[11px] text-slate-400 font-mono">
+                                                                {item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                                            </span>
+                                                        </div>
+                                                        <div className="whitespace-pre-wrap pt-1">{item.message}</div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <>
+                                                    {/* Fallback for legacy single-message format */}
+                                                    <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-slate-200 text-sm leading-relaxed mr-6 space-y-1">
+                                                        <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                                            <span className="font-bold text-white">{selectedContact.name} &lt;{selectedContact.email}&gt;</span>
+                                                            <span className="text-[11px] font-mono">{new Date(selectedContact.createdAt).toLocaleString()}</span>
+                                                        </div>
+                                                        <div className="whitespace-pre-wrap">{selectedContact.message}</div>
+                                                    </div>
+
+                                                    {selectedContact.replyMessage && (
+                                                        <div className="p-4 bg-violet-950/40 border border-violet-800/60 rounded-2xl text-violet-100 text-sm leading-relaxed ml-6 space-y-1 font-mono">
+                                                            <div className="flex items-center justify-between text-xs text-violet-400 mb-1 font-sans">
+                                                                <span className="font-bold text-violet-200">Staff Reply &bull; inquiry@scantext.dev</span>
+                                                                <span className="text-[11px] font-mono">{selectedContact.repliedAt ? new Date(selectedContact.repliedAt).toLocaleString() : ''}</span>
+                                                            </div>
+                                                            <div className="text-violet-300 font-semibold mb-1 font-sans">Subject: {selectedContact.replySubject}</div>
+                                                            <div className="whitespace-pre-wrap">{selectedContact.replyMessage}</div>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
                                     </div>
-
-                                    {/* Previous Staff Reply History if already replied */}
-                                    {selectedContact.replyMessage && (
-                                        <div className="space-y-1.5">
-                                            <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider block flex items-center gap-1.5">
-                                                <CheckCircle className="w-3.5 h-3.5" />
-                                                Staff Reply Sent via inquiry@scantext.dev &bull; {selectedContact.repliedAt ? new Date(selectedContact.repliedAt).toUTCString() : ''}
-                                            </span>
-                                            <div className="p-4 bg-emerald-950/30 border border-emerald-800/50 rounded-2xl text-emerald-200 text-xs leading-relaxed whitespace-pre-wrap font-mono">
-                                                <div className="text-emerald-400 font-bold mb-1 font-sans">Subject: {selectedContact.replySubject}</div>
-                                                {selectedContact.replyMessage}
-                                            </div>
-                                        </div>
-                                    )}
 
                                     {/* Email Reply Composer Form */}
                                     <div className="space-y-4 pt-2 border-t border-slate-800">

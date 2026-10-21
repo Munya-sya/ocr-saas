@@ -207,6 +207,7 @@ class ContactMessage(Base):
     reply_message = Column(Text, nullable=True)
     replied_at = Column(DateTime, nullable=True)
     replied_by = Column(String(255), nullable=True)
+    thread_history = Column(Text, nullable=True)  # JSON-encoded array of conversation messages
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False, index=True)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
 
@@ -227,6 +228,7 @@ class ContactMessage(Base):
             "replyMessage": self.reply_message,
             "repliedAt": self.replied_at.isoformat() if self.replied_at else None,
             "repliedBy": self.replied_by,
+            "threadHistory": json.loads(self.thread_history) if self.thread_history else [],
             "createdAt": self.created_at.isoformat() if self.created_at else None,
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
         }

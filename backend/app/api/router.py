@@ -225,3 +225,154 @@ async def extract_text_from_file(
         text=extracted_text,
         processingMs=elapsed_ms
     )
+
+
+class InboundEmailPayload(BaseModel):
+    from_email: Optional[str] = Field(None, alias="from")
+    to_email: Optional[str] = Field(None, alias="to")
+    subject: Optional[str] = ""
+    text: Optional[str] = ""
+    rawEmail: Optional[str] = None
+
+
+@router.post("/support/inbound-webhook", tags=["Support"])
+async def inbound_support_email_webhook(
+    payload: InboundEmailPayload,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Receives incoming customer email replies forwarded by Cloudflare Email Worker,
+    identifies the associated support inquiry by [Ticket #ID], and appends the response
+    to the conversation thread in the database.
+    """
+    import re
+    import json
+    import os
+
+    # 1. Verify shared secret if configured
+    inbound_secret = os.getenv("INBOUND_EMAIL_SECRET", "scantext-inbound-secret-2026")
+    client_secret = request.headers.get("X-Inbound-Secret") or request.query_params.get("secret")
+    if client_secret and client_secret != inbound_secret:
+        raise HTTPException(status_code=403, detail="Invalid inbound webhook secret.")
+
+    sender_email = (payload.from_email or "").strip().lower()
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+', sender_email)
+    if email_match:
+        sender_email = email_match.group(0)
+
+    subject = payload.subject or ""
+    body_text = payload.text or ""
+    if not body_text and payload.rawEmail:
+        body_text = payload.rawEmail[:4000]
+
+    # Clean quoted history if present (e.g. 'On Wed, Oct 21 ... wrote:')
+    cleaned_reply = re.split(r'\n\s*On .* wrote:|\n\s*--- Original Message ---|\n\s*> ', body_text)[0].strip()
+    if not cleaned_reply:
+        cleaned_reply = body_text.strip() or "(Empty email reply)"
+
+    # 2. Look for ticket ID in subject: [Ticket #XXXXXXXX]
+    ticket_match = re.search(r'\[Ticket\s*#?([a-f0-9\-]+)\]', subject, re.I)
+    target_msg = None
+
+    if ticket_match:
+        ticket_id = ticket_match.group(1).strip()
+        target_msg = db.query(ContactMessage).filter(ContactMessage.id.startswith(ticket_id)).first()
+
+    # Fallback to most recent open contact message from sender
+    if not target_msg and sender_email:
+        target_msg = db.query(ContactMessage).filter(
+            ContactMessage.email == sender_email
+        ).order_by(ContactMessage.created_at.desc()).first()
+
+    now_iso = datetime.datetime.utcnow().isoformat()
+
+    if target_msg:
+        try:
+            history = json.loads(target_msg.thread_history) if target_msg.thread_history else []
+        except Exception:
+            history = []
+
+        if not history:
+            history.append({
+                "sender": "customer",
+                "name": target_msg.name,
+                "email": target_msg.email,
+                "message": target_msg.message,
+                "timestamp": target_msg.created_at.isoformat() if target_msg.created_at else now_iso
+            })
+            if target_msg.reply_message:
+                history.append({
+                    "sender": "staff",
+                    "name": "ScanText Support",
+                    "email": target_msg.replied_by or "inquiry@scantext.dev",
+                    "message": target_msg.reply_message,
+                    "timestamp": target_msg.replied_at.isoformat() if target_msg.replied_at else now_iso
+                })
+
+        history.append({
+            "sender": "customer",
+            "name": target_msg.name,
+            "email": sender_email,
+            "message": cleaned_reply,
+            "timestamp": now_iso
+        })
+
+        target_msg.thread_history = json.dumps(history)
+        target_msg.status = ContactStatus.NEW  # Alert admin by setting status back to NEW
+        target_msg.updated_at = datetime.datetime.utcnow()
+        db.commit()
+
+        try:
+            send_admin_new_inquiry_alert(
+                inquiry_id=target_msg.id,
+                sender_name=f"{target_msg.name} (Reply to Ticket #{target_msg.id[:8]})",
+                sender_email=sender_email,
+                subject_text=f"Re: {target_msg.subject}",
+                message_preview=cleaned_reply
+            )
+        except Exception as e:
+            print(f"[Inbound Webhook Alert Error] {e}")
+
+        return {
+            "success": True,
+            "action": "appended_to_thread",
+            "ticketId": target_msg.id,
+            "message": f"Successfully synced customer reply into Ticket #{target_msg.id[:8]}."
+        }
+    else:
+        # Create a brand new inquiry record if no matching ticket
+        new_msg = ContactMessage(
+            name=sender_email.split('@')[0],
+            email=sender_email,
+            subject=subject or "Inbound Support Message",
+            message=cleaned_reply,
+            status=ContactStatus.NEW,
+            thread_history=json.dumps([{
+                "sender": "customer",
+                "name": sender_email.split('@')[0],
+                "email": sender_email,
+                "message": cleaned_reply,
+                "timestamp": now_iso
+            }])
+        )
+        db.add(new_msg)
+        db.commit()
+        db.refresh(new_msg)
+
+        try:
+            send_admin_new_inquiry_alert(
+                inquiry_id=new_msg.id,
+                sender_name=new_msg.name,
+                sender_email=sender_email,
+                subject_text=new_msg.subject,
+                message_preview=cleaned_reply
+            )
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "action": "created_new_ticket",
+            "ticketId": new_msg.id
+        }

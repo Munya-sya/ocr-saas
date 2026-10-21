@@ -694,7 +694,8 @@ def reply_to_contact_message(
         recipient_name=msg.name,
         original_subject=msg.subject,
         reply_body=payload.replyMessage.strip(),
-        custom_subject=reply_subj
+        custom_subject=reply_subj,
+        ticket_id=msg.id
     )
 
     if not success:
@@ -703,7 +704,33 @@ def reply_to_contact_message(
             detail=f"Failed to send email reply: {email_status_msg}"
         )
 
+    # Maintain thread_history JSON array
+    import json
+    now_iso = datetime.datetime.utcnow().isoformat()
+    try:
+        history = json.loads(msg.thread_history) if msg.thread_history else []
+    except Exception:
+        history = []
+
+    if not history:
+        history.append({
+            "sender": "customer",
+            "name": msg.name,
+            "email": msg.email,
+            "message": msg.message,
+            "timestamp": msg.created_at.isoformat() if msg.created_at else now_iso
+        })
+
+    history.append({
+        "sender": "staff",
+        "name": "ScanText Support",
+        "email": admin.email,
+        "message": payload.replyMessage.strip(),
+        "timestamp": now_iso
+    })
+
     # Update database record
+    msg.thread_history = json.dumps(history)
     msg.reply_subject = reply_subj
     msg.reply_message = payload.replyMessage.strip()
     msg.replied_at = datetime.datetime.utcnow()

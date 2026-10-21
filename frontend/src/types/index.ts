@@ -211,6 +211,13 @@ export interface ContactMessage {
     replyMessage?: string | null;
     repliedAt?: string | null;
     repliedBy?: string | null;
+    threadHistory?: Array<{
+        sender: 'customer' | 'staff';
+        name: string;
+        email: string;
+        message: string;
+        timestamp: string;
+    }>;
     createdAt: string;
     updatedAt: string;
 }

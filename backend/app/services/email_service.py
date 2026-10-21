@@ -145,9 +145,17 @@ def send_contact_confirmation_email(to_email: str, name: str, subject_text: str)
     """
     send_smtp_email(to_email, subject, html_content, from_address="noreply@scantext.dev", reply_to="noreply@scantext.dev")
 
-def send_contact_reply_email(to_email: str, recipient_name: str, original_subject: str, reply_body: str, custom_subject: str | None = None):
+def send_contact_reply_email(to_email: str, recipient_name: str, original_subject: str, reply_body: str, custom_subject: str | None = None, ticket_id: str | None = None):
     """Sends the administrator's reply directly to the user with Reply-To set to inquiry@scantext.dev."""
-    subject = custom_subject or f"Re: {original_subject}"
+    ticket_tag = f"[Ticket #{ticket_id[:8]}] " if ticket_id else ""
+    if custom_subject:
+        subject = custom_subject if "[Ticket" in custom_subject else f"{ticket_tag}{custom_subject}"
+    else:
+        clean_subj = original_subject
+        if "[Ticket" in clean_subj:
+            import re
+            clean_subj = re.sub(r'\[Ticket\s*#[a-f0-9\-]+\]\s*', '', clean_subj, flags=re.I).strip()
+        subject = f"Re: {ticket_tag}{clean_subj}"
     formatted_body = "<br/>".join(reply_body.replace("\r\n", "\n").split("\n"))
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
