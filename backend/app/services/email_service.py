@@ -151,11 +151,7 @@ def send_contact_confirmation_email(to_email: str, name: str, subject_text: str)
 def send_contact_reply_email(to_email: str, recipient_name: str, original_subject: str, reply_body: str, custom_subject: str | None = None):
     """Sends the administrator's reply directly to the user with Reply-To set to inquiry@scantext.dev."""
     subject = custom_subject or f"Re: {original_subject}"
-    formatted_body = "<br/>".join(reply_body.replace("
-
-", "
-").split("
-"))
+    formatted_body = "<br/>".join(reply_body.replace("\r\n", "\n").split("\n"))
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
         <h2 style="color: #2563eb;">ScanText Support Response</h2>
