@@ -1,4 +1,5 @@
 import enum
+import json
 import datetime
 import uuid
 from sqlalchemy import Column, String, Integer, Float, Text, DateTime, Enum, Boolean, ForeignKey, Date
@@ -228,7 +229,7 @@ class ContactMessage(Base):
             "replyMessage": self.reply_message,
             "repliedAt": self.replied_at.isoformat() if self.replied_at else None,
             "repliedBy": self.replied_by,
-            "threadHistory": json.loads(self.thread_history) if self.thread_history else [],
+            "threadHistory": (json.loads(self.thread_history) if (self.thread_history and self.thread_history.startswith("[")) else []), 
             "createdAt": self.created_at.isoformat() if self.created_at else None,
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
         }
