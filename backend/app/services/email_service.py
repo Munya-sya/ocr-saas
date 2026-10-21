@@ -138,11 +138,12 @@ def send_contact_confirmation_email(to_email: str, name: str, subject_text: str)
         <p>We wanted to let you know that we received your message regarding <strong>"{subject_text}"</strong>.</p>
         <p>Our support and technical team is reviewing your inquiry and will respond directly to this email address as soon as possible.</p>
         <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">
-            <p>Best regards,<br/><strong>ScanText Support (inquiry@scantext.dev)</strong></p>
+            <p>Best regards,<br/><strong>ScanText OCR Automated Notification System</strong></p>
+            <p style="font-size: 11px; color: #94a3b8; margin-top: 8px;">Please do not reply directly to this automated confirmation email. A support team member will follow up with you shortly.</p>
         </div>
     </div>
     """
-    send_smtp_email(to_email, subject, html_content, from_address="inquiry@scantext.dev", reply_to="inquiry@scantext.dev")
+    send_smtp_email(to_email, subject, html_content, from_address="noreply@scantext.dev", reply_to="noreply@scantext.dev")
 
 def send_contact_reply_email(to_email: str, recipient_name: str, original_subject: str, reply_body: str, custom_subject: str | None = None):
     """Sends the administrator's reply directly to the user with Reply-To set to inquiry@scantext.dev."""
