@@ -68,7 +68,7 @@ export const Footer: React.FC = () => {
                             </li>
                             <li>
                                 <Link href="/pricing" className="hover:text-blue-600 transition-colors">
-                                    Pro Subscription ($19/mo)
+                                    Pro Subscription ($5/mo)
                                 </Link>
                             </li>
                             <li>

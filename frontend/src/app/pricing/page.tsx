@@ -224,7 +224,7 @@ function PricingContent() {
                             Tailored for businesses, legal teams, and researchers handling large volume multi-page documents.
                         </p>
                         <div className="flex items-baseline gap-1 mb-8">
-                            <span className="text-4xl font-extrabold text-white">$19</span>
+                            <span className="text-4xl font-extrabold text-white">$5</span>
                             <span className="text-blue-300 font-medium">/ month</span>
                         </div>
 
