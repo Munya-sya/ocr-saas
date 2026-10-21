@@ -128,9 +128,10 @@ def send_password_reset_email(to_email: str, token: str):
     """
     send_smtp_email(to_email, subject, html_content, from_address="noreply@scantext.dev", reply_to="noreply@scantext.dev")
 
-def send_contact_confirmation_email(to_email: str, name: str, subject_text: str):
+def send_contact_confirmation_email(to_email: str, name: str, subject_text: str, ticket_id: str | None = None):
     """Sends an automated confirmation acknowledging receipt of a contact inquiry from inquiry@scantext.dev."""
-    subject = f"We received your message: {subject_text}"
+    ticket_tag = f"[Ticket #{ticket_id[:8]}] " if ticket_id else ""
+    subject = f"{ticket_tag}We received your message: {subject_text}"
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
         <h2 style="color: #2563eb;">Thank You for Contacting ScanText OCR</h2>
@@ -138,12 +139,12 @@ def send_contact_confirmation_email(to_email: str, name: str, subject_text: str)
         <p>We wanted to let you know that we received your message regarding <strong>"{subject_text}"</strong>.</p>
         <p>Our support and technical team is reviewing your inquiry and will respond directly to this email address as soon as possible.</p>
         <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">
-            <p>Best regards,<br/><strong>ScanText OCR Automated Notification System</strong></p>
-            <p style="font-size: 11px; color: #94a3b8; margin-top: 8px;">Please do not reply directly to this automated confirmation email. A support team member will follow up with you shortly.</p>
+            <p>Best regards,<br/><strong>ScanText OCR Technical Support</strong> &bull; inquiry@scantext.dev</p>
+            <p style="font-size: 11px; color: #94a3b8; margin-top: 8px;">Reference: {ticket_tag.strip() or 'Ticket'}</p>
         </div>
     </div>
     """
-    send_smtp_email(to_email, subject, html_content, from_address="noreply@scantext.dev", reply_to="noreply@scantext.dev")
+    return send_smtp_email(to_email, subject, html_content, from_address="inquiry@scantext.dev", reply_to="inquiry@scantext.dev")
 
 def send_contact_reply_email(to_email: str, recipient_name: str, original_subject: str, reply_body: str, custom_subject: str | None = None, ticket_id: str | None = None):
     """Sends the administrator's reply directly to the user with Reply-To set to inquiry@scantext.dev."""

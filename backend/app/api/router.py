@@ -110,7 +110,8 @@ async def submit_contact_form(
         send_contact_confirmation_email(
             to_email=contact_msg.email,
             name=contact_msg.name,
-            subject_text=contact_msg.subject
+            subject_text=contact_msg.subject,
+            ticket_id=contact_msg.id
         )
     except Exception as e:
         print(f"[ContactForm Warning] Could not send confirmation email: {e}")

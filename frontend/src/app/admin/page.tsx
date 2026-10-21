@@ -169,6 +169,31 @@ export default function AdminPage() {
         }
     }, [user, authLoading, activeTab]);
 
+    // Real-Time Live Sync for Support Inquiries and open modal conversation thread
+    useEffect(() => {
+        if (!user?.isAdmin || activeTab !== 'support') return;
+
+        const interval = setInterval(async () => {
+            try {
+                const fresh = await getAdminContactMessages(contactStatusFilter, contactSearch);
+                setContactMessages(fresh.messages || []);
+                setContactCounts(fresh.counts || null);
+
+                // If admin has a ticket modal open, automatically update its chat thread in real-time!
+                if (selectedContact) {
+                    const activeTicket = (fresh.messages || []).find((m: ContactMessage) => m.id === selectedContact.id);
+                    if (activeTicket && JSON.stringify(activeTicket.threadHistory) !== JSON.stringify(selectedContact.threadHistory)) {
+                        setSelectedContact(activeTicket);
+                    }
+                }
+            } catch {
+                // Silently ignore background poll errors
+            }
+        }, 4000);
+
+        return () => clearInterval(interval);
+    }, [user, activeTab, contactStatusFilter, contactSearch, selectedContact]);
+
     const fetchTabContent = async () => {
         setLoadingData(true);
         try {
@@ -221,6 +246,7 @@ export default function AdminPage() {
         try {
             const res = await replyToContactMessage(selectedContact.id, replyText.trim(), replySubject.trim() || undefined);
             setReplyStatusMsg({ type: 'success', text: res.message || 'Reply sent successfully via email!' });
+            setReplyText(''); // Clear input box on send
             setContactMessages(prev => prev.map(m => m.id === selectedContact.id ? res.contactMessage : m));
             setSelectedContact(res.contactMessage);
             const fresh = await getAdminContactMessages(contactStatusFilter, contactSearch);
@@ -3056,13 +3082,19 @@ export default function AdminPage() {
                             </div>
 
                             <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => fetchTabContent()}
-                                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5"
-                                >
-                                    <RefreshCw className={`w-3.5 h-3.5 ${loadingData ? 'animate-spin' : ''}`} />
-                                    Filter / Refresh
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <div className="hidden sm:flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1.5 rounded-xl border border-emerald-500/20">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                        Live Auto-Sync (4s)
+                                    </div>
+                                    <button
+                                        onClick={() => fetchTabContent()}
+                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5"
+                                    >
+                                        <RefreshCw className={`w-3.5 h-3.5 ${loadingData ? 'animate-spin' : ''}`} />
+                                        Refresh
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
