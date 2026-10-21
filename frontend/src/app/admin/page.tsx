@@ -3216,7 +3216,7 @@ export default function AdminPage() {
                                         <div className="space-y-1.5">
                                             <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider block flex items-center gap-1.5">
                                                 <CheckCircle className="w-3.5 h-3.5" />
-                                                Staff Reply Sent ({selectedContact.repliedBy}) &bull; {selectedContact.repliedAt ? new Date(selectedContact.repliedAt).toUTCString() : ''}
+                                                Staff Reply Sent via inquiry@scantext.dev &bull; {selectedContact.repliedAt ? new Date(selectedContact.repliedAt).toUTCString() : ''}
                                             </span>
                                             <div className="p-4 bg-emerald-950/30 border border-emerald-800/50 rounded-2xl text-emerald-200 text-xs leading-relaxed whitespace-pre-wrap font-mono">
                                                 <div className="text-emerald-400 font-bold mb-1 font-sans">Subject: {selectedContact.replySubject}</div>

@@ -44,13 +44,9 @@ def send_smtp_email(to_email: str, subject: str, html_content: str, from_address
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
 
-        # Display name and From header
-        if is_gmail and smtp_user and ("@" in smtp_user):
-            # For personal Gmail SMTP, Google enforces authenticated address in From header,
-            # but setting Reply-To ensures all incoming replies go to inquiry@scantext.dev
-            msg["From"] = f"{settings.EMAILS_FROM_NAME} <{smtp_user}>"
-        else:
-            msg["From"] = f"{settings.EMAILS_FROM_NAME} <{from_email}>"
+        # Always use the branded sender address (e.g. inquiry@scantext.dev)
+        sender_display_name = "ScanText Support" if ("inquiry" in from_email or "support" in from_email) else settings.EMAILS_FROM_NAME
+        msg["From"] = f"{sender_display_name} <{from_email}>"
 
         if reply_to:
             msg["Reply-To"] = reply_to
