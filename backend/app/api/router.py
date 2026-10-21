@@ -271,8 +271,32 @@ async def inbound_support_email_webhook(
     subject = payload.subject or ""
     body_text = payload.text or ""
     raw_content = payload.rawEmail or payload.raw_email or ""
+    if raw_content and not body_text:
+        try:
+            import email
+            from email import policy
+            parsed_mail = email.message_from_string(raw_content, policy=policy.default)
+            plain_part = parsed_mail.get_body(preferencelist=('plain',))
+            if plain_part:
+                body_text = plain_part.get_content()
+            else:
+                html_part = parsed_mail.get_body(preferencelist=('html',))
+                if html_part:
+                    body_text = html_part.get_content()
+
+            if not body_text:
+                for part in parsed_mail.walk():
+                    if part.get_content_type() == 'text/plain':
+                        body_text = part.get_content()
+                        break
+        except Exception as e:
+            print(f"[Email Parse Notice] {e}")
+
     if not body_text and raw_content:
-        body_text = raw_content[:4000]
+        header_end = raw_content.find("\r\n\r\n")
+        if header_end == -1:
+            header_end = raw_content.find("\n\n")
+        body_text = raw_content[header_end + 2:].strip() if header_end != -1 else raw_content[:4000].strip()
 
     # Clean quoted history if present (e.g. 'On Wed, Oct 21 ... wrote:')
     cleaned_reply = re.split(r'\n\s*On .* wrote:|\n\s*--- Original Message ---|\n\s*> ', body_text)[0].strip()
