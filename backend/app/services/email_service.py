@@ -20,7 +20,7 @@ def get_smtp_settings():
 
         smtp_user = settings_map.get("SMTP_USER", settings.SMTP_USER)
         smtp_pass = settings_map.get("SMTP_PASSWORD", settings.SMTP_PASSWORD)
-        from_email = settings_map.get("EMAILS_FROM_EMAIL", settings.EMAILS_FROM_EMAIL) or "noreply@scantext-ocr.com"
+        from_email = settings_map.get("EMAILS_FROM_EMAIL", settings.EMAILS_FROM_EMAIL) or "noreply@scantext.dev"
 
         return smtp_host, smtp_port, smtp_user, smtp_pass, from_email
     except Exception as e:
@@ -29,17 +29,36 @@ def get_smtp_settings():
     finally:
         db.close()
 
-def send_smtp_email(to_email: str, subject: str, html_content: str) -> tuple[bool, str]:
+def send_smtp_email(to_email: str, subject: str, html_content: str, from_address: str = None, reply_to: str = None) -> tuple[bool, str]:
     """
     Sends email over SMTP using dynamic DB settings. Connects to local Mailpit (1025),
     TLS servers (Port 587) with STARTTLS and EHLO handshakes, or SSL servers (Port 465).
+    Gracefully handles custom domain masking and Reply-To routing.
     Returns (success: bool, message: str).
     """
-    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = get_smtp_settings()
+    smtp_host, smtp_port, smtp_user, smtp_pass, from_email_default = get_smtp_settings()
     try:
+        from_email = from_address or from_email_default or "noreply@scantext.dev"
+        is_gmail = "gmail.com" in smtp_host.lower()
+
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = f"{settings.EMAILS_FROM_NAME} <{from_email}>"
+
+        # Display name and From header
+        if is_gmail and smtp_user and ("@" in smtp_user):
+            # For personal Gmail SMTP, Google enforces authenticated address in From header,
+            # but setting Reply-To ensures all incoming replies go to inquiry@scantext.dev
+            msg["From"] = f"{settings.EMAILS_FROM_NAME} <{smtp_user}>"
+        else:
+            msg["From"] = f"{settings.EMAILS_FROM_NAME} <{from_email}>"
+
+        if reply_to:
+            msg["Reply-To"] = reply_to
+        elif from_address:
+            msg["Reply-To"] = from_address
+        else:
+            msg["Reply-To"] = "inquiry@scantext.dev"
+
         msg["To"] = to_email
 
         html_part = MIMEText(html_content, "html")
@@ -52,17 +71,19 @@ def send_smtp_email(to_email: str, subject: str, html_content: str) -> tuple[boo
             server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=12)
         else:
             server = smtplib.SMTP(smtp_host, smtp_port, timeout=12)
-            if smtp_port == 587 or "gmail.com" in smtp_host.lower():
+            if smtp_port == 587 or is_gmail:
                 server.ehlo()
                 server.starttls()
                 server.ehlo()
 
         # Envelope sender for SMTP protocol handshake
-        envelope_from = smtp_user if (smtp_host.lower() == "smtp.gmail.com" and smtp_user) else from_email
+        envelope_from = smtp_user if (is_gmail and smtp_user) else from_email
 
         with server:
             if smtp_user and smtp_pass:
-                server.login(smtp_user, smtp_pass)
+                # Strip spaces automatically from App Passwords
+                clean_pass = smtp_pass.replace(" ", "")
+                server.login(smtp_user, clean_pass)
 
             server.sendmail(envelope_from, [to_email], msg.as_string())
             print(f"[EmailService Success] Email successfully sent to {to_email} via {smtp_host}:{smtp_port}!")
@@ -80,7 +101,7 @@ def send_smtp_email(to_email: str, subject: str, html_content: str) -> tuple[boo
         return False, error_msg
 
 def send_verification_email(to_email: str, token: str):
-    """Sends account verification link to user."""
+    """Sends account verification link to user from noreply@scantext.dev."""
     verify_url = f"{settings.FRONTEND_URL}/login?verify={token}"
     subject = "Verify Your ScanText OCR Account"
     html_content = f"""
@@ -93,10 +114,10 @@ def send_verification_email(to_email: str, token: str):
         <p style="color: #64748b; font-size: 14px;">Or copy and paste this link in your browser:<br/><a href="{verify_url}">{verify_url}</a></p>
     </div>
     """
-    send_smtp_email(to_email, subject, html_content)
+    send_smtp_email(to_email, subject, html_content, from_address="noreply@scantext.dev", reply_to="noreply@scantext.dev")
 
 def send_password_reset_email(to_email: str, token: str):
-    """Sends single-use password reset link to user."""
+    """Sends single-use password reset link to user from noreply@scantext.dev."""
     reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
     subject = "Reset Your ScanText OCR Password"
     html_content = f"""
@@ -109,10 +130,10 @@ def send_password_reset_email(to_email: str, token: str):
         <p style="color: #64748b; font-size: 14px;">This token expires in 1 hour. If you did not request a password reset, please ignore this email.</p>
     </div>
     """
-    send_smtp_email(to_email, subject, html_content)
+    send_smtp_email(to_email, subject, html_content, from_address="noreply@scantext.dev", reply_to="noreply@scantext.dev")
 
 def send_contact_confirmation_email(to_email: str, name: str, subject_text: str):
-    """Sends an automated confirmation acknowledging receipt of a contact inquiry."""
+    """Sends an automated confirmation acknowledging receipt of a contact inquiry from inquiry@scantext.dev."""
     subject = f"We received your message: {subject_text}"
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -121,17 +142,19 @@ def send_contact_confirmation_email(to_email: str, name: str, subject_text: str)
         <p>We wanted to let you know that we received your message regarding <strong>"{subject_text}"</strong>.</p>
         <p>Our support and technical team is reviewing your inquiry and will respond directly to this email address as soon as possible.</p>
         <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">
-            <p>Best regards,<br/><strong>ScanText OCR Support Team</strong></p>
+            <p>Best regards,<br/><strong>ScanText Support (inquiry@scantext.dev)</strong></p>
         </div>
     </div>
     """
-    send_smtp_email(to_email, subject, html_content)
+    send_smtp_email(to_email, subject, html_content, from_address="inquiry@scantext.dev", reply_to="inquiry@scantext.dev")
 
 def send_contact_reply_email(to_email: str, recipient_name: str, original_subject: str, reply_body: str, custom_subject: str | None = None):
-    """Sends the administrator's reply directly to the user who contacted support."""
+    """Sends the administrator's reply directly to the user with Reply-To set to inquiry@scantext.dev."""
     subject = custom_subject or f"Re: {original_subject}"
-    # Format line breaks in reply_body for HTML
-    formatted_body = "<br/>".join(reply_body.replace("\r\n", "\n").split("\n"))
+    formatted_body = "<br/>".join(reply_body.replace("
+", "
+").split("
+"))
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
         <h2 style="color: #2563eb;">ScanText Support Response</h2>
@@ -141,9 +164,8 @@ def send_contact_reply_email(to_email: str, recipient_name: str, original_subjec
         </div>
         <p style="color: #64748b; font-size: 13px;">Regarding your inquiry: <em>"{original_subject}"</em></p>
         <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">
-            <p>If you have any further questions, feel free to reply to this message.<br/><strong>ScanText OCR Technical Support</strong></p>
+            <p>You can reply directly to this email to continue the conversation.<br/><strong>ScanText OCR Technical Support &bull; inquiry@scantext.dev</strong></p>
         </div>
     </div>
     """
-    return send_smtp_email(to_email, subject, html_content)
-
+    return send_smtp_email(to_email, subject, html_content, from_address="inquiry@scantext.dev", reply_to="inquiry@scantext.dev")

@@ -44,7 +44,7 @@ export default function ContactPage() {
                             <div className="space-y-2 text-xs font-medium text-slate-700">
                                 <div className="flex items-center space-x-2">
                                     <Mail className="w-4 h-4 text-slate-400" />
-                                    <span>support@scantext-ocr.local</span>
+                                    <span>inquiry@scantext.dev</span>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <Globe className="w-4 h-4 text-slate-400" />
