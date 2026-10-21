@@ -36,9 +36,9 @@ echo "==================================================================="
 echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Commencing database restoration..."
 
 if [[ "$BACKUP_FILE" == *.gz ]]; then
-    gunzip -c "$BACKUP_FILE" | psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+    gunzip -c "$BACKUP_FILE" | docker compose -f infrastructure/docker-compose.infra.yml exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 else
-    psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" < "$BACKUP_FILE"
+    cat "$BACKUP_FILE" | docker compose -f infrastructure/docker-compose.infra.yml exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 fi
 
 echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Database restored successfully from ${BACKUP_FILE}."

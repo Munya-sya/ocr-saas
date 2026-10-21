@@ -87,7 +87,8 @@ function DashboardContent() {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `scantext_user_data_${user.id.slice(0, 8)}.json`;
+            const userId = profile?.user?.id ? profile.user.id.slice(0, 8) : 'data';
+            a.download = `scantext_user_data_${userId}.json`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);

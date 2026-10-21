@@ -25,8 +25,8 @@ BACKUP_FILEPATH="${BACKUP_DIR}/${BACKUP_FILENAME}"
 
 echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Starting automated database backup for '${POSTGRES_DB}' on ${POSTGRES_HOST}:${POSTGRES_PORT}..."
 
-# Execute pg_dump streamed through gzip
-if pg_dump -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists | gzip -9 > "$BACKUP_FILEPATH"; then
+# Execute pg_dump streamed through gzip directly via the running Postgres container
+if docker compose -f infrastructure/docker-compose.infra.yml exec -T postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists | gzip -9 > "$BACKUP_FILEPATH"; then
     FILE_SIZE=$(du -h "$BACKUP_FILEPATH" | cut -f1)
     echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Backup completed successfully: ${BACKUP_FILEPATH} (Size: ${FILE_SIZE})"
 else

@@ -25,12 +25,11 @@ export const AdSlot: React.FC<AdSlotProps> = ({ placement, user }) => {
     const [adConfig, setAdConfig] = useState<PublicAdConfig | null>(null);
     const [hasAdConsent, setHasAdConsent] = useState<boolean>(true);
 
-    // Pro subscribers never see ads
-    if (user?.planTier === 'pro') {
-        return null;
-    }
+    const isPro = user?.planTier?.toLowerCase() === 'pro';
 
     useEffect(() => {
+        if (isPro) return;
+
         getPublicAdConfig()
             .then(cfg => {
                 setAdConfig(cfg);
@@ -47,10 +46,10 @@ export const AdSlot: React.FC<AdSlotProps> = ({ placement, user }) => {
                 }
             }
         } catch {}
-    }, []);
+    }, [isPro]);
 
     useEffect(() => {
-        if (!hasAdConsent || !adConfig?.adsenseEnabled || !adConfig.clientId) return;
+        if (isPro || !hasAdConsent || !adConfig?.adsenseEnabled || !adConfig.clientId) return;
 
         // Ensure AdSense script is injected once
         const scriptId = 'google-adsense-script';
@@ -70,7 +69,12 @@ export const AdSlot: React.FC<AdSlotProps> = ({ placement, user }) => {
         } catch {
             // ignore initial push exceptions in development
         }
-    }, [adConfig, hasAdConsent, placement]);
+    }, [isPro, adConfig, hasAdConsent, placement]);
+
+    // Pro subscribers never see ads (rendered after all hooks to comply with React rules)
+    if (isPro) {
+        return null;
+    }
 
     const placementTitle = placement === 'below-upload' ? 'Standard Banner' : 'Results Footer Banner';
     const activeSlotId = placement === 'below-upload' ? adConfig?.slotBelowUpload : adConfig?.slotBelowResults;

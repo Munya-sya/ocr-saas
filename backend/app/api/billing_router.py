@@ -68,8 +68,31 @@ def find_user_for_webhook(
     return None
 
 
+def get_effective_frontend_url(request: Request, db: Session) -> str:
+    """Dynamically determines the user's origin host (e.g. https://scantext.dev) for Stripe redirects."""
+    # 1. Prefer database SystemSetting if explicitly set
+    db_setting = get_effective_setting(db, "FRONTEND_URL", None)
+    if db_setting and not str(db_setting).startswith("http://localhost") and not str(db_setting).startswith("http://127.0.0.1"):
+        return str(db_setting).rstrip("/")
+
+    # 2. Prefer browser Origin header if accessing from a real domain or IP
+    origin = request.headers.get("origin")
+    if origin and not origin.startswith("http://localhost") and not origin.startswith("http://127.0.0.1"):
+        return origin.rstrip("/")
+
+    # 3. Check proxy/tunnel headers (X-Forwarded-Host or Host)
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    proto = request.headers.get("x-forwarded-proto", "https")
+    if host and "localhost" not in host and "127.0.0.1" not in host:
+        return f"{proto}://{host}".rstrip("/")
+
+    # 4. Fallback to origin or settings.FRONTEND_URL
+    return origin.rstrip("/") if origin else settings.FRONTEND_URL.rstrip("/")
+
+
 @billing_router.post("/create-checkout-session")
 def create_checkout_session(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -91,6 +114,7 @@ def create_checkout_session(
 
     try:
         stripe.api_key = stripe_key
+        base_url = get_effective_frontend_url(request, db)
         checkout_params = {
             "mode": "subscription",
             "line_items": [{
@@ -108,8 +132,8 @@ def create_checkout_session(
                     "user_email": current_user.email,
                 }
             },
-            "success_url": f"{settings.FRONTEND_URL}/dashboard?billing=success&session_id={{CHECKOUT_SESSION_ID}}",
-            "cancel_url": f"{settings.FRONTEND_URL}/pricing?billing=canceled",
+            "success_url": f"{base_url}/dashboard?billing=success&session_id={{CHECKOUT_SESSION_ID}}",
+            "cancel_url": f"{base_url}/pricing?billing=canceled",
         }
 
         if allow_promo:
@@ -155,6 +179,7 @@ def create_checkout_session(
 
 @billing_router.post("/create-portal-session")
 def create_portal_session(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -172,7 +197,8 @@ def create_portal_session(
 
     try:
         stripe.api_key = stripe_key
-        portal_return_url = f"{settings.FRONTEND_URL}{portal_return_path}"
+        base_url = get_effective_frontend_url(request, db)
+        portal_return_url = f"{base_url}{portal_return_path}"
         portal_session = stripe.billing_portal.Session.create(
             customer=current_user.stripe_customer_id,
             return_url=portal_return_url,

@@ -13,8 +13,19 @@ SNAPSHOT_FILE="${BACKUP_DIR}/vault_raft_${TIMESTAMP}.snap"
 
 mkdir -p "$BACKUP_DIR"
 
+if [ -z "${VAULT_TOKEN:-}" ]; then
+  printf "Enter Vault Root/Admin Token for snapshot: "
+  read -r -s VAULT_TOKEN
+  echo ""
+fi
+
+if [ -z "$VAULT_TOKEN" ]; then
+  echo "ERROR: VAULT_TOKEN is required to execute raft snapshot." >&2
+  exit 1
+fi
+
 echo "=== Taking Vault Raft Snapshot ==="
-docker compose -f infrastructure/docker-compose.infra.yml exec -T vault \
+docker compose -f infrastructure/docker-compose.infra.yml exec -T -e VAULT_TOKEN="$VAULT_TOKEN" vault \
   vault operator raft snapshot save "/vault/data/vault_${TIMESTAMP}.snap"
 
 # Move snapshot out of container volume to host backup directory

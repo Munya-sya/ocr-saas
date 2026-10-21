@@ -41,8 +41,8 @@ services:
       - PRO_MAX_PDF_PAGES=100
       - OCR_TIMEOUT_SECONDS=300
       - MAX_JOBS_PER_IP_PER_HOUR=30
-      - CORS_ORIGINS=["http://localhost", "http://localhost:3000", "http://localhost:80"]
-      - FRONTEND_URL=http://localhost
+      - CORS_ORIGINS=["http://localhost", "http://localhost:3000", "http://localhost:80", "https://scantext.dev", "https://ocr.scantext.dev"]
+      - FRONTEND_URL=${FRONTEND_URL:-https://scantext.dev}
       - TEMP_UPLOAD_DIR=/tmp/ocr_uploads
       - SMTP_HOST=mailpit
       - SMTP_PORT=1025
