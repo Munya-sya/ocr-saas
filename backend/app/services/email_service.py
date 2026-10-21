@@ -144,7 +144,7 @@ def send_contact_confirmation_email(to_email: str, name: str, subject_text: str,
         </div>
     </div>
     """
-    return send_smtp_email(to_email, subject, html_content, from_address="inquiry@scantext.dev", reply_to="inquiry@scantext.dev")
+    return send_smtp_email(to_email, subject, html_content, from_address="noreply@scantext.dev", reply_to="noreply@scantext.dev")
 
 def send_contact_reply_email(to_email: str, recipient_name: str, original_subject: str, reply_body: str, custom_subject: str | None = None, ticket_id: str | None = None):
     """Sends the administrator's reply directly to the user with Reply-To set to inquiry@scantext.dev."""
