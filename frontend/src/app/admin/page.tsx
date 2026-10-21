@@ -22,7 +22,9 @@ import {
     triggerExpiredCleanup,
     getAdminContactMessages,
     replyToContactMessage,
-    updateContactMessage
+    updateContactMessage,
+    verifyUserManually,
+    adminResendVerification
 } from '../../services/api';
 import { AdminStats, AdminUser, SystemSettings, AuditLogItem, User, StripeDiagnosticResponse, AdminOCRJob, QueueStatsResponse, ContactMessage } from '../../types';
 import {
@@ -62,6 +64,29 @@ export default function AdminPage() {
     const [contactStatusFilter, setContactStatusFilter] = useState<string>('all');
     const [contactSearch, setContactSearch] = useState<string>('');
     const [selectedContact, setSelectedContact] = useState<ContactMessage | null>(null);
+    const [actionNotification, setActionNotification] = useState<{ message: string; link?: string } | null>(null);
+
+    const handleVerifyUser = async (userId: string, email: string) => {
+        try {
+            await verifyUserManually(userId);
+            setUsersList(prev => prev.map(u => u.id === userId ? { ...u, isVerified: true } : u));
+            setActionNotification({ message: `Successfully verified user ${email}!` });
+        } catch (err: any) {
+            alert(err.message || 'Failed to verify user');
+        }
+    };
+
+    const handleResendUserVerification = async (userId: string, email: string) => {
+        try {
+            const res = await adminResendVerification(userId);
+            setActionNotification({
+                message: `Fresh verification email dispatched to ${email}!`,
+                link: res.verificationUrl
+            });
+        } catch (err: any) {
+            alert(err.message || 'Failed to resend verification');
+        }
+    };
     const [replyText, setReplyText] = useState<string>('');
     const [replySubject, setReplySubject] = useState<string>('');
     const [sendingReply, setSendingReply] = useState<boolean>(false);
@@ -533,6 +558,33 @@ export default function AdminPage() {
                 {/* TAB 2: USER MODERATION */}
                 {activeTab === 'users' && (
                     <div className="space-y-4">
+                        {actionNotification && (
+                            <div className="p-4 bg-emerald-950/80 border border-emerald-800 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-emerald-200 text-sm">
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+                                    <span>{actionNotification.message}</span>
+                                </div>
+                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    {actionNotification.link && (
+                                        <button
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(actionNotification.link || '');
+                                                alert('Verification link copied to clipboard!');
+                                            }}
+                                            className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow transition-all"
+                                        >
+                                            Copy Direct Activation Link
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => setActionNotification(null)}
+                                        className="text-xs text-slate-400 hover:text-white px-2 py-1"
+                                    >
+                                        Dismiss
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         <div className="flex items-center justify-between bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
                             <div className="relative flex-1 max-w-md">
                                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -625,6 +677,28 @@ export default function AdminPage() {
                                                         <RotateCcw className={`w-3 h-3 ${resettingQuotaUserId === u.id ? 'animate-spin' : ''}`} />
                                                         {resettingQuotaUserId === u.id ? 'Resetting...' : 'Reset Quota'}
                                                     </button>
+
+                                                    {!u.isVerified && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleVerifyUser(u.id, u.email)}
+                                                                className="px-3 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 rounded-lg text-xs font-medium border border-emerald-800 transition-all inline-flex items-center gap-1"
+                                                                title="Instantly mark user as verified without requiring email confirmation"
+                                                            >
+                                                                <CheckCircle className="w-3 h-3 text-emerald-400" />
+                                                                Verify User
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() => handleResendUserVerification(u.id, u.email)}
+                                                                className="px-3 py-1.5 bg-blue-950/80 hover:bg-blue-900 text-blue-200 rounded-lg text-xs font-medium border border-blue-800 transition-all inline-flex items-center gap-1"
+                                                                title="Resend activation email link and copy direct URL"
+                                                            >
+                                                                <Mail className="w-3 h-3 text-blue-400" />
+                                                                Resend Email
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))}

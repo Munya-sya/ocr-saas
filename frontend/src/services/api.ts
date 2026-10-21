@@ -351,6 +351,33 @@ export async function updateUserTier(userId: string, tier: string): Promise<{ me
     return response.json();
 }
 
+export async function verifyUserManually(userId: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE}/api/v1/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ isVerified: true })
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to manually verify user');
+    }
+    return response.json();
+}
+
+export async function adminResendVerification(userId: string): Promise<{ message: string; verificationUrl: string }> {
+    const response = await fetch(`${API_BASE}/api/v1/admin/users/${userId}/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to resend verification email');
+    }
+    return response.json();
+}
+
 export async function getSystemSettings(): Promise<import('../types').SystemSettings> {
     const response = await fetch(`${API_BASE}/api/v1/admin/settings`, {
         credentials: 'include'

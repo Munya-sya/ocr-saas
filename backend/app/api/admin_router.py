@@ -426,6 +426,50 @@ def reset_user_quota(
         "pagesReset": pages_reset
     }
 
+@router.post("/users/{user_id}/resend-verification")
+def admin_resend_verification(
+    user_id: str,
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Generates a fresh verification token, dispatches email, and returns the direct link for admin."""
+    from app.db.models import EmailVerificationToken
+    from app.services.email_service import send_verification_email
+    import uuid
+
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User account not found."
+        )
+
+    token_str = str(uuid.uuid4())
+    expires = datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+    verify_token = EmailVerificationToken(
+        user_id=target_user.id,
+        token=token_str,
+        expires_at=expires
+    )
+    db.add(verify_token)
+    db.commit()
+
+    send_verification_email(target_user.email, token_str)
+    verify_url = f"{settings.FRONTEND_URL}/login?verify={token_str}"
+
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    log_admin_action(
+        db, admin, "RESEND_VERIFICATION",
+        f"Generated fresh verification link for user {target_user.email} ({user_id})",
+        client_ip
+    )
+
+    return {
+        "message": f"Verification email dispatched to {target_user.email}.",
+        "verificationUrl": verify_url
+    }
+
 @router.get("/jobs")
 def list_ocr_jobs(
     status_filter: Optional[str] = None,
