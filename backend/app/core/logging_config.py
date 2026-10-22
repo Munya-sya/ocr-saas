@@ -12,6 +12,8 @@ SENSITIVE_PATTERNS = [
     # Stripe secret keys & webhook secrets
     (re.compile(r'\b(sk_live_[a-zA-Z0-9_]{10,})\b'), r'sk_live_••••••••'),
     (re.compile(r'\b(sk_test_[a-zA-Z0-9_]{10,})\b'), r'sk_test_••••••••'),
+    (re.compile(r'\b(rk_live_[a-zA-Z0-9_]{10,})\b'), r'rk_live_••••••••'),
+    (re.compile(r'\b(rk_test_[a-zA-Z0-9_]{10,})\b'), r'rk_test_••••••••'),
     (re.compile(r'\b(whsec_[a-zA-Z0-9_]{10,})\b'), r'whsec_••••••••'),
     # JWT Bearer tokens
     (re.compile(r'(Bearer\s+)ey[a-zA-Z0-9_\.\-]{20,}'), r'\1ey••••••••[REDACTED_JWT]'),

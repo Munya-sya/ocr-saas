@@ -156,7 +156,7 @@ def create_checkout_session(
         logger.error(f"Stripe authentication failed: {ae}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or placeholder Stripe API Key provided. Please configure a valid Stripe Secret Key (sk_test_...) in the Admin Console (System Settings) or infrastructure/.env."
+            detail="Invalid or placeholder Stripe API Key provided. Please configure a valid Stripe Secret Key (sk_live_..., rk_live_..., or sk_test_...) in the Admin Console (System Settings) or infrastructure/.env."
         )
     except stripe.error.InvalidRequestError as ire:
         logger.error(f"Stripe invalid request: {ire}")

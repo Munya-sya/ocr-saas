@@ -1244,10 +1244,10 @@ export default function AdminPage() {
                                                 type="password"
                                                 value={settingsData?.STRIPE_SECRET_KEY ?? ''}
                                                 onChange={e => setSettingsData(prev => prev ? { ...prev, STRIPE_SECRET_KEY: e.target.value } : null)}
-                                                placeholder="sk_test_••••••••••••••••"
+                                                placeholder="sk_live_... or rk_live_..."
                                                 className="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
                                             />
-                                            <span className="text-[10px] text-slate-500">Server-side secret key</span>
+                                            <span className="text-[10px] text-slate-500">Server-side secret or restricted key (sk_live_... / rk_live_...)</span>
                                         </div>
 
                                         <div>
