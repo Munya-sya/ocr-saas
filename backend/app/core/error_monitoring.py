@@ -9,7 +9,20 @@ def init_error_monitoring():
     Initializes Sentry or error tracking if SENTRY_DSN is configured.
     If unconfigured or placeholder, runs in safe no-op mode without overhead.
     """
-    sentry_dsn = os.getenv("SENTRY_DSN", "")
+    sentry_dsn = ""
+    try:
+        from app.db.database import SessionLocal
+        from app.db.models import SystemSetting
+        db = SessionLocal()
+        setting = db.query(SystemSetting).filter(SystemSetting.key == "SENTRY_DSN").first()
+        if setting and setting.value and not setting.value.startswith("...") and "ingest.sentry.io" in setting.value:
+            sentry_dsn = setting.value.strip()
+        db.close()
+    except Exception as e:
+        logger.debug(f"[ErrorMonitoring] Could not query Sentry DSN from DB: {e}")
+
+    if not sentry_dsn:
+        sentry_dsn = os.getenv("SENTRY_DSN", "")
 
     if not sentry_dsn or sentry_dsn in ("placeholder_dsn", "https://examplePublicKey@o0.ingest.sentry.io/0"):
         logger.info("[ErrorMonitoring] Sentry DSN unconfigured. Running in local structured logging mode.")

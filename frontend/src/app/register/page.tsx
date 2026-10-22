@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
-import { registerUser } from '../../services/api';
+import { registerUser, getPublicCaptchaConfig } from '../../services/api';
+import { TurnstileWidget } from '../../components/TurnstileWidget';
 import { UserPlus, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function RegisterPage() {
@@ -17,6 +18,16 @@ export default function RegisterPage() {
     const [error, setError] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [captchaConfig, setCaptchaConfig] = useState<{ captchaEnabled: boolean; captchaSiteKey: string } | null>(null);
+    const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
+    useEffect(() => {
+        getPublicCaptchaConfig().then(cfg => {
+            if (cfg.captchaEnabled && cfg.captchaSiteKey) {
+                setCaptchaConfig(cfg);
+            }
+        }).catch(() => {});
+    }, []);
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,7 +47,7 @@ export default function RegisterPage() {
         setLoading(true);
 
         try {
-            const res = await registerUser(email, password);
+            const res = await registerUser(email, password, captchaToken || undefined);
             setSuccessMsg(res.message || 'Registration successful! Verification email sent to Mailpit.');
             setTimeout(() => {
                 router.push('/login');
@@ -139,9 +150,18 @@ export default function RegisterPage() {
                                 />
                             </div>
 
+                            {captchaConfig?.captchaEnabled && captchaConfig.captchaSiteKey && (
+                                <TurnstileWidget
+                                    siteKey={captchaConfig.captchaSiteKey}
+                                    onVerify={token => setCaptchaToken(token)}
+                                    onExpire={() => setCaptchaToken(null)}
+                                    theme="light"
+                                />
+                            )}
+
                             <button
                                 type="submit"
-                                disabled={loading}
+                                disabled={loading || (Boolean(captchaConfig?.captchaEnabled) && !captchaToken)}
                                 className="w-full mt-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-indigo-100 transition-all disabled:opacity-50 text-sm tracking-wide"
                             >
                                 {loading ? 'Creating Account...' : 'Register Free Account'}

@@ -370,6 +370,42 @@ def test_smtp_connection(
         "message": msg
     }
 
+
+@router.post("/sentry/test-connection")
+def test_sentry_connection(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Sends a live test diagnostic event to Sentry to verify DSN connectivity.
+    """
+    import os
+    setting = db.query(SystemSetting).filter(SystemSetting.key == "SENTRY_DSN").first()
+    dsn = setting.value if (setting and setting.value) else os.getenv("SENTRY_DSN", "")
+
+    if not dsn or "ingest.sentry.io" not in dsn:
+        return {
+            "success": False,
+            "message": "Sentry DSN is unconfigured or invalid. Please save your Sentry DSN first."
+        }
+
+    try:
+        import sentry_sdk
+        sentry_sdk.init(dsn=dsn, environment=os.getenv("ENVIRONMENT", "production"))
+        sentry_sdk.capture_message(
+            f"[ScanText OCR Diagnostic Alert] Manual test event triggered by administrator {admin.email}",
+            level="info"
+        )
+        return {
+            "success": True,
+            "message": "Test event dispatched to Sentry! Check your Sentry Issues dashboard."
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Sentry dispatch failed: {str(e)}"
+        }
+
 @router.get("/audit-logs")
 def get_audit_logs(
     limit: int = 50,

@@ -50,6 +50,18 @@ def get_public_ad_config(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/config/captcha", tags=["System"])
+def get_public_captcha_config():
+    """Returns public CAPTCHA configuration (Site Key, Provider, Enabled status)."""
+    from app.services.captcha_service import get_captcha_settings
+    enabled, provider, site_key, _ = get_captcha_settings()
+    return {
+        "captchaEnabled": enabled,
+        "captchaProvider": provider,
+        "captchaSiteKey": site_key if enabled else ""
+    }
+
+
 class ContactFormSchema(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
@@ -141,6 +153,7 @@ async def extract_text_from_file(
     language: str = Form("eng"),
     psm: int = Form(3),
     preprocess_mode: str = Form("auto"),
+    captcha_token: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     user: Optional[User] = Depends(get_current_user_optional)
 ):
@@ -171,6 +184,16 @@ async def extract_text_from_file(
         header_bytes=header_bytes,
         file_size_bytes=file_size_bytes
     )
+
+    # Abuse protection: verify CAPTCHA for anonymous submissions when CAPTCHA is enabled
+    if not user:
+        client_ip = get_client_ip(request)
+        captcha_valid, captcha_msg = verify_captcha_token(captcha_token, client_ip)
+        if not captcha_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=captcha_msg
+            )
 
     # Enforce daily conversion quota and page limits for logged in user / IP
     ext = os.path.splitext(file.filename)[1].lower()

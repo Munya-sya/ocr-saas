@@ -9,10 +9,11 @@ import { OCRControls } from '../components/OCRControls';
 import { ResultArea } from '../components/ResultArea';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { AdSlot } from '../components/AdSlot';
-import { fetchSupportedLanguages, submitOCRRequest, submitAsyncJob, fetchJobStatus, fetchJobResult, cancelJob, getCurrentUserProfile } from '../services/api';
+import { fetchSupportedLanguages, submitOCRRequest, submitAsyncJob, fetchJobStatus, fetchJobResult, cancelJob, getCurrentUserProfile, getPublicCaptchaConfig } from '../services/api';
 import { LanguageOption, OCRResult, ProcessingStage, AsyncJobStatusResponse, User } from '../types';
 import { ShieldCheck, Zap, FileCode, CheckCircle, Clock, Loader2, XCircle } from 'lucide-react';
 import { QuotaExceededModal } from '../components/QuotaExceededModal';
+import { TurnstileWidget } from '../components/TurnstileWidget';
 
 export default function Home() {
     const [file, setFile] = useState<File | null>(null);
@@ -37,6 +38,8 @@ export default function Home() {
     const [showQuotaModal, setShowQuotaModal] = useState<boolean>(false);
     const [quotaModalMsg, setQuotaModalMsg] = useState<string>('');
     const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [captchaConfig, setCaptchaConfig] = useState<{ captchaEnabled: boolean; captchaSiteKey: string } | null>(null);
+    const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
     useEffect(() => {
         fetchSupportedLanguages().then((langs) => {
@@ -139,7 +142,8 @@ export default function Home() {
                         if (progressPercent >= 100) {
                             setStage('polling');
                         }
-                    }
+                    },
+                    captchaToken || undefined
                 );
                 setAsyncJobId(jobData.jobId);
                 setStage('polling');
@@ -166,7 +170,8 @@ export default function Home() {
                         if (progressPercent >= 100) {
                             setStage('extracting');
                         }
-                    }
+                    },
+                    captchaToken || undefined
                 );
                 setStage('complete');
                 setResult(res);
@@ -288,6 +293,19 @@ export default function Home() {
                                 stage={stage}
                                 uploadProgress={uploadProgress}
                                 disabled={!file}
+                                captchaRequired={!currentUser && Boolean(captchaConfig?.captchaEnabled) && !captchaToken}
+                                captchaWidget={
+                                    !currentUser && captchaConfig?.captchaEnabled && captchaConfig.captchaSiteKey ? (
+                                        <div className="py-2">
+                                            <TurnstileWidget
+                                                siteKey={captchaConfig.captchaSiteKey}
+                                                onVerify={token => setCaptchaToken(token)}
+                                                onExpire={() => setCaptchaToken(null)}
+                                                theme="dark"
+                                            />
+                                        </div>
+                                    ) : null
+                                }
                             />
                         </div>
                     )}

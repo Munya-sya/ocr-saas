@@ -15,6 +15,8 @@ interface OCRControlsProps {
     stage: ProcessingStage;
     uploadProgress: number;
     disabled: boolean;
+    captchaWidget?: React.ReactNode;
+    captchaRequired?: boolean;
 }
 
 export const OCRControls: React.FC<OCRControlsProps> = ({
@@ -29,6 +31,8 @@ export const OCRControls: React.FC<OCRControlsProps> = ({
     stage,
     uploadProgress,
     disabled,
+    captchaWidget,
+    captchaRequired = false,
 }) => {
     const isProcessing = stage === 'uploading' || stage === 'extracting';
 
@@ -102,11 +106,13 @@ export const OCRControls: React.FC<OCRControlsProps> = ({
                 </div>
             </div>
 
+            {captchaWidget}
+
             {/* Convert Action Button */}
             <div className="pt-2">
                 <button
                     onClick={onSubmit}
-                    disabled={disabled || isProcessing}
+                    disabled={disabled || isProcessing || captchaRequired}
                     aria-label={isProcessing ? `Processing: ${stage}` : 'Convert Image to Text'}
                     className={`w-full flex items-center justify-center space-x-3 px-6 py-3.5 rounded-xl font-bold text-base shadow-md transition-all ${disabled
                             ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'

@@ -16,6 +16,7 @@ import {
     getAuditLogs,
     testStripeConnection,
     testSmtpConnection,
+    testSentryConnection,
     resetUserQuota,
     getAdminJobs,
     getQueueStats,
@@ -114,7 +115,22 @@ export default function AdminPage() {
 
     // SMTP Diagnostics State
     const [testingSmtp, setTestingSmtp] = useState(false);
+    const [testingSentry, setTestingSentry] = useState(false);
+    const [sentryTestResult, setSentryTestResult] = useState<{ success: boolean; message: string } | null>(null);
     const [smtpDiag, setSmtpDiag] = useState<{ success: boolean; recipient?: string; host?: string; message: string } | null>(null);
+
+    const handleTestSentry = async () => {
+        setTestingSentry(true);
+        setSentryTestResult(null);
+        try {
+            const res = await testSentryConnection();
+            setSentryTestResult(res);
+        } catch (err: any) {
+            setSentryTestResult({ success: false, message: err.message || 'Sentry test failed' });
+        } finally {
+            setTestingSentry(false);
+        }
+    };
 
     const handleTestSmtp = async () => {
         setTestingSmtp(true);
@@ -1780,9 +1796,20 @@ export default function AdminPage() {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                                            Sentry DSN Integration URL
-                                        </label>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                                Sentry DSN Integration URL
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={handleTestSentry}
+                                                disabled={testingSentry}
+                                                className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1 disabled:opacity-50"
+                                            >
+                                                <Activity className={`w-3 h-3 ${testingSentry ? 'animate-spin' : ''}`} />
+                                                {testingSentry ? 'Testing...' : 'Test Sentry Alert'}
+                                            </button>
+                                        </div>
                                         <input
                                             type="password"
                                             value={settingsData?.SENTRY_DSN ?? ''}
@@ -1790,7 +1817,14 @@ export default function AdminPage() {
                                             placeholder="https://xxx@o0.ingest.sentry.io/0"
                                             className="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
                                         />
-                                        <span className="text-[10px] text-slate-500">Leave blank for local console error logging</span>
+                                        <div className="flex justify-between items-center mt-1">
+                                            <span className="text-[10px] text-slate-500">Leave blank for local console error logging</span>
+                                            {sentryTestResult && (
+                                                <span className={`text-[10px] font-medium ${sentryTestResult.success ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    {sentryTestResult.message}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="flex flex-col justify-center bg-slate-950 p-4 rounded-xl border border-slate-800">

@@ -60,6 +60,17 @@ class StructuredJsonFormatter(logging.Formatter):
         return json.dumps(log_obj)
 
 def setup_logging(structured_json: bool = False, log_level: int = logging.INFO):
+    # Check database dynamic setting if available
+    try:
+        from app.db.database import SessionLocal
+        from app.db.models import SystemSetting
+        db = SessionLocal()
+        setting = db.query(SystemSetting).filter(SystemSetting.key == "STRUCTURED_LOGGING").first()
+        if setting and setting.value:
+            structured_json = str(setting.value).lower() == "true"
+        db.close()
+    except Exception:
+        pass
     """Configures application-wide logging with secret redaction filters."""
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)

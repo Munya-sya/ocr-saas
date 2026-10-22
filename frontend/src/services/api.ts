@@ -40,7 +40,8 @@ export async function submitOCRRequest(
     language: string = 'eng',
     psm: number = 3,
     preprocessMode: string = 'auto',
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    captchaToken?: string
 ): Promise<OCRResponse> {
     if (onProgress) onProgress(30);
 
@@ -49,6 +50,9 @@ export async function submitOCRRequest(
     formData.append('language', language);
     formData.append('psm', psm.toString());
     formData.append('preprocess_mode', preprocessMode);
+    if (captchaToken) {
+        formData.append('captcha_token', captchaToken);
+    }
 
     const response = await fetch(`${API_BASE}/api/v1/ocr`, {
         method: 'POST',
@@ -71,7 +75,8 @@ export async function submitAsyncJob(
     language: string = 'eng',
     psm: number = 3,
     preprocessMode: string = 'auto',
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    captchaToken?: string
 ): Promise<{ jobId: string; filename: string; status: string; message: string }> {
     if (onProgress) onProgress(40);
 
@@ -144,12 +149,12 @@ export async function fetchRecentJobs(): Promise<AsyncJobStatusResponse[]> {
 }
 
 // Phase 3 Auth & User Services
-export async function registerUser(email: string, password: string): Promise<AuthResponse> {
+export async function registerUser(email: string, password: string, captchaToken?: string): Promise<AuthResponse> {
     const response = await fetch(`${API_BASE}/api/v1/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, captchaToken }),
     });
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -439,6 +444,18 @@ export async function testSmtpConnection(): Promise<{ success: boolean; recipien
     return response.json();
 }
 
+export async function testSentryConnection(): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`${API_BASE}/api/v1/admin/sentry/test-connection`, {
+        method: 'POST',
+        credentials: 'include',
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to test Sentry integration');
+    }
+    return response.json();
+}
+
 // Phase 4 Stripe Billing Services
 export async function createCheckoutSession(): Promise<{ checkoutUrl: string; sessionId?: string; alreadySubscribed?: boolean; message?: string }> {
     const response = await fetch(`${API_BASE}/api/v1/billing/create-checkout-session`, {
@@ -610,3 +627,21 @@ export async function updateContactMessage(
 
 
 
+
+export async function getPublicCaptchaConfig(): Promise<{
+    captchaEnabled: boolean;
+    captchaProvider: string;
+    captchaSiteKey: string;
+}> {
+    try {
+        const response = await fetch(`${API_BASE}/api/v1/config/captcha`, {
+            cache: 'no-store'
+        });
+        if (!response.ok) {
+            return { captchaEnabled: false, captchaProvider: 'turnstile', captchaSiteKey: '' };
+        }
+        return await response.json();
+    } catch {
+        return { captchaEnabled: false, captchaProvider: 'turnstile', captchaSiteKey: '' };
+    }
+}
