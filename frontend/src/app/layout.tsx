@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { CookieConsentBanner } from '../components/CookieConsentBanner';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://scantext-ocr.com';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://scantext.dev';
 
 export const metadata: Metadata = {
     metadataBase: new URL(siteUrl),

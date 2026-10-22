@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = int(_vault_secrets.get("SMTP_PORT") or os.getenv("SMTP_PORT", "1025"))
     SMTP_USER: str = _vault_secrets.get("SMTP_USER") or os.getenv("SMTP_USER", "")
     SMTP_PASSWORD: str = _vault_secrets.get("SMTP_PASSWORD") or os.getenv("SMTP_PASSWORD", "")
-    EMAILS_FROM_EMAIL: str = "noreply@scantext-ocr.com"
+    EMAILS_FROM_EMAIL: str = "noreply@scantext.dev"
     EMAILS_FROM_NAME: str = "ScanText OCR SaaS"
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost")
 
