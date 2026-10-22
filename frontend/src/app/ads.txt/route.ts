@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-    let cleanPub = 'pub-0000000000000000';
+    let cleanPub = 'pub-8167471318692318';
     try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
         const res = await fetch(`${apiUrl}/api/v1/config/ads`, { next: { revalidate: 300 } });
@@ -12,7 +12,7 @@ export async function GET() {
             }
         }
     } catch {
-        // Safe fallback
+        // Safe fallback to user's AdSense ID
     }
 
     const content = `google.com, ${cleanPub}, DIRECT, f08c47fec0942fa0\n`;
