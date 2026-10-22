@@ -219,6 +219,7 @@ def create_portal_session(
 
 
 @stripe_router.post("/webhook")
+@billing_router.post("/webhook")
 async def stripe_webhook(
     request: Request,
     db: Session = Depends(get_db)
