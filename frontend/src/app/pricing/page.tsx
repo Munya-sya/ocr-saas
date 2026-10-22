@@ -17,6 +17,7 @@ function PricingContent() {
     const [loading, setLoading] = useState(true);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [portalLoading, setPortalLoading] = useState(false);
+    const [planConfig, setPlanConfig] = useState<PlanConfigResponse | null>(null);
 
     // Cancel Pro Modal state
     const [showCancelModal, setShowCancelModal] = useState(false);
@@ -29,6 +30,8 @@ function PricingContent() {
             .then(res => setUser(res.user))
             .catch(() => setUser(null))
             .finally(() => setLoading(false));
+
+        getPublicPlanConfig().then(setPlanConfig).catch(() => {});
 
         const billingParam = searchParams.get('billing');
         if (billingParam === 'success') {
@@ -152,15 +155,15 @@ function PricingContent() {
                         <ul className="space-y-4 text-sm text-slate-700">
                             <li className="flex items-center gap-3">
                                 <Check className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                                <span><strong>3 Conversions</strong> per 24 hours</span>
+                                <span><strong>{planConfig?.free.dailyConversions ?? 3} Conversions</strong> per 24 hours</span>
                             </li>
                             <li className="flex items-center gap-3">
                                 <Check className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                                <span><strong>10 MB</strong> Maximum file size</span>
+                                <span><strong>{planConfig?.free.maxFileMb ?? 10} MB</strong> Maximum file size</span>
                             </li>
                             <li className="flex items-center gap-3">
                                 <Check className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                                <span><strong>5 PDF Pages</strong> max per document</span>
+                                <span><strong>{planConfig?.free.maxPdfPages ?? 5} PDF Pages</strong> max per document</span>
                             </li>
                             <li className="flex items-center gap-3">
                                 <Check className="w-5 h-5 text-emerald-500 flex-shrink-0" />
@@ -224,22 +227,22 @@ function PricingContent() {
                             Tailored for businesses, legal teams, and researchers handling large volume multi-page documents.
                         </p>
                         <div className="flex items-baseline gap-1 mb-8">
-                            <span className="text-4xl font-extrabold text-white">$5</span>
+                            <span className="text-4xl font-extrabold text-white">${planConfig?.pro.displayPrice ?? "5"}</span>
                             <span className="text-blue-300 font-medium">/ month</span>
                         </div>
 
                         <ul className="space-y-4 text-sm text-blue-100">
                             <li className="flex items-center gap-3">
                                 <Check className="w-5 h-5 text-amber-400 flex-shrink-0" />
-                                <span><strong>100 Conversions</strong> per 24 hours</span>
+                                <span><strong>{planConfig?.pro.dailyConversions ?? 100} Conversions</strong> per 24 hours</span>
                             </li>
                             <li className="flex items-center gap-3">
                                 <Check className="w-5 h-5 text-amber-400 flex-shrink-0" />
-                                <span><strong>50 MB</strong> Maximum file size</span>
+                                <span><strong>{planConfig?.pro.maxFileMb ?? 50} MB</strong> Maximum file size</span>
                             </li>
                             <li className="flex items-center gap-3">
                                 <Check className="w-5 h-5 text-amber-400 flex-shrink-0" />
-                                <span><strong>100 PDF Pages</strong> max per document</span>
+                                <span><strong>{planConfig?.pro.maxPdfPages ?? 100} PDF Pages</strong> max per document</span>
                             </li>
                             <li className="flex items-center gap-3">
                                 <Check className="w-5 h-5 text-amber-400 flex-shrink-0" />

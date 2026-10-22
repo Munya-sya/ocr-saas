@@ -3,9 +3,19 @@ from typing import Optional
 from fastapi import Request, Depends, HTTPException, status, Header, Cookie
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.db.models import User, DailyUsage, PlanTier
+from app.db.models import User, DailyUsage, PlanTier, SystemSetting
 from app.core.security import decode_access_token
 from app.core.config import settings
+
+def get_int_setting(db: Session, key: str, default: int) -> int:
+    """Reads dynamic integer limit from SystemSetting table with fallback."""
+    try:
+        setting = db.query(SystemSetting).filter(SystemSetting.key == key).first()
+        if setting and setting.value and str(setting.value).strip().isdigit():
+            return int(setting.value.strip())
+    except Exception:
+        pass
+    return default
 
 def get_current_user_optional(
     request: Request,
@@ -108,18 +118,27 @@ def check_and_increment_quota(
 
     is_pro = (user is not None) and (user.plan_tier == PlanTier.PRO or user.plan_tier == "pro")
 
+    # Dynamic limits from database SystemSetting with config fallbacks
+    anon_daily = get_int_setting(db, "ANONYMOUS_DAILY_CONVERSIONS", settings.ANONYMOUS_DAILY_CONVERSIONS)
+    free_daily = get_int_setting(db, "FREE_DAILY_CONVERSIONS", settings.FREE_DAILY_CONVERSIONS)
+    pro_daily = get_int_setting(db, "PRO_DAILY_CONVERSIONS", settings.PRO_DAILY_CONVERSIONS)
+    free_max_mb = get_int_setting(db, "FREE_MAX_FILE_MB", settings.FREE_MAX_FILE_MB)
+    pro_max_mb = get_int_setting(db, "PRO_MAX_FILE_MB", settings.PRO_MAX_FILE_MB)
+    free_max_pdf = get_int_setting(db, "FREE_MAX_PDF_PAGES", settings.FREE_MAX_PDF_PAGES)
+    pro_max_pdf = get_int_setting(db, "PRO_MAX_PDF_PAGES", settings.PRO_MAX_PDF_PAGES)
+
     if is_pro:
-        max_daily = settings.PRO_DAILY_CONVERSIONS
-        max_file_mb = settings.PRO_MAX_FILE_MB
-        max_pdf_pages = settings.PRO_MAX_PDF_PAGES
+        max_daily = pro_daily
+        max_file_mb = pro_max_mb
+        max_pdf_pages = pro_max_pdf
     elif user:
-        max_daily = settings.FREE_DAILY_CONVERSIONS
-        max_file_mb = settings.FREE_MAX_FILE_MB
-        max_pdf_pages = settings.FREE_MAX_PDF_PAGES
+        max_daily = free_daily
+        max_file_mb = free_max_mb
+        max_pdf_pages = free_max_pdf
     else:
-        max_daily = settings.ANONYMOUS_DAILY_CONVERSIONS
-        max_file_mb = settings.FREE_MAX_FILE_MB
-        max_pdf_pages = settings.FREE_MAX_PDF_PAGES
+        max_daily = anon_daily
+        max_file_mb = free_max_mb
+        max_pdf_pages = free_max_pdf
 
     # Enforce file size limit
     max_bytes = max_file_mb * 1024 * 1024
@@ -127,7 +146,7 @@ def check_and_increment_quota(
         plan_name = "Pro" if is_pro else "Free"
         err_msg = f"File size exceeds {plan_name} plan limit of {max_file_mb}MB."
         if not is_pro:
-            err_msg += f" Upgrade to Pro for up to {settings.PRO_MAX_FILE_MB}MB files."
+            err_msg += f" Upgrade to Pro for up to {pro_max_mb}MB files."
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=err_msg
@@ -138,7 +157,7 @@ def check_and_increment_quota(
         plan_name = "Pro" if is_pro else "Free"
         err_msg = f"PDF exceeds {plan_name} plan page limit of {max_pdf_pages} pages."
         if not is_pro:
-            err_msg += f" Upgrade to Pro for up to {settings.PRO_MAX_PDF_PAGES} pages."
+            err_msg += f" Upgrade to Pro for up to {pro_max_pdf} pages."
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=err_msg
@@ -155,11 +174,11 @@ def check_and_increment_quota(
 
     if current_conversions >= max_daily:
         if is_pro:
-            msg = f"Daily Pro quota of {settings.PRO_DAILY_CONVERSIONS} conversions reached. Please contact support or retry tomorrow."
+            msg = f"Daily Pro quota of {pro_daily} conversions reached. Please contact support or retry tomorrow."
         elif not user:
-            msg = f"Anonymous daily limit of {settings.ANONYMOUS_DAILY_CONVERSIONS} conversions reached. Create a free account or upgrade to Pro for up to {settings.PRO_DAILY_CONVERSIONS} conversions/day."
+            msg = f"Anonymous daily limit of {anon_daily} conversions reached. Create a free account or upgrade to Pro for up to {pro_daily} conversions/day."
         else:
-            msg = f"Daily free quota of {settings.FREE_DAILY_CONVERSIONS} conversions reached. Upgrade to Pro for up to {settings.PRO_DAILY_CONVERSIONS} conversions/day."
+            msg = f"Daily free quota of {free_daily} conversions reached. Upgrade to Pro for up to {pro_daily} conversions/day."
 
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

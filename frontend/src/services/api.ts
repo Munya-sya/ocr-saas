@@ -645,3 +645,40 @@ export async function getPublicCaptchaConfig(): Promise<{
         return { captchaEnabled: false, captchaProvider: 'turnstile', captchaSiteKey: '' };
     }
 }
+
+
+export interface PlanConfigResponse {
+    anonymous: {
+        dailyConversions: number;
+        maxFileMb: number;
+        maxPdfPages: number;
+    };
+    free: {
+        dailyConversions: number;
+        maxFileMb: number;
+        maxPdfPages: number;
+    };
+    pro: {
+        dailyConversions: number;
+        maxFileMb: number;
+        maxPdfPages: number;
+        displayPrice: string;
+        currency: string;
+    };
+}
+
+export async function getPublicPlanConfig(): Promise<PlanConfigResponse> {
+    try {
+        const response = await fetch(`${API_BASE}/api/v1/config/plans`, {
+            cache: 'no-store'
+        });
+        if (!response.ok) throw new Error();
+        return await response.json();
+    } catch {
+        return {
+            anonymous: { dailyConversions: 3, maxFileMb: 10, maxPdfPages: 5 },
+            free: { dailyConversions: 3, maxFileMb: 10, maxPdfPages: 5 },
+            pro: { dailyConversions: 100, maxFileMb: 50, maxPdfPages: 100, displayPrice: '5.00', currency: 'USD' }
+        };
+    }
+}

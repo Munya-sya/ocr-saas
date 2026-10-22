@@ -50,6 +50,37 @@ def get_public_ad_config(db: Session = Depends(get_db)):
     }
 
 
+
+@router.get("/config/plans", tags=["System"])
+def get_public_plan_config(db: Session = Depends(get_db)):
+    """Returns dynamic public plan limits (daily conversions, max file size, max PDF pages)."""
+    from app.db.models import SystemSetting
+    settings_map = {s.key: s.value for s in db.query(SystemSetting).all()}
+
+    def get_val(key: str, default: int) -> int:
+        val = settings_map.get(key)
+        return int(val.strip()) if val and str(val).strip().isdigit() else default
+
+    return {
+        "anonymous": {
+            "dailyConversions": get_val("ANONYMOUS_DAILY_CONVERSIONS", settings.ANONYMOUS_DAILY_CONVERSIONS),
+            "maxFileMb": get_val("FREE_MAX_FILE_MB", settings.FREE_MAX_FILE_MB),
+            "maxPdfPages": get_val("FREE_MAX_PDF_PAGES", settings.FREE_MAX_PDF_PAGES),
+        },
+        "free": {
+            "dailyConversions": get_val("FREE_DAILY_CONVERSIONS", settings.FREE_DAILY_CONVERSIONS),
+            "maxFileMb": get_val("FREE_MAX_FILE_MB", settings.FREE_MAX_FILE_MB),
+            "maxPdfPages": get_val("FREE_MAX_PDF_PAGES", settings.FREE_MAX_PDF_PAGES),
+        },
+        "pro": {
+            "dailyConversions": get_val("PRO_DAILY_CONVERSIONS", settings.PRO_DAILY_CONVERSIONS),
+            "maxFileMb": get_val("PRO_MAX_FILE_MB", settings.PRO_MAX_FILE_MB),
+            "maxPdfPages": get_val("PRO_MAX_PDF_PAGES", settings.PRO_MAX_PDF_PAGES),
+            "displayPrice": settings_map.get("STRIPE_DISPLAY_PRICE", getattr(settings, "STRIPE_DISPLAY_PRICE", "5.00")),
+            "currency": settings_map.get("STRIPE_CURRENCY", getattr(settings, "STRIPE_CURRENCY", "USD")),
+        }
+    }
+
 @router.get("/config/captcha", tags=["System"])
 def get_public_captcha_config():
     """Returns public CAPTCHA configuration (Site Key, Provider, Enabled status)."""

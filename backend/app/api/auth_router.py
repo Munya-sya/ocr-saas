@@ -432,7 +432,19 @@ def get_current_user_profile(
 
     is_pro = (user.plan_tier == PlanTier.PRO) or (user.plan_tier == "pro")
     conversions_used = usage.conversion_count if usage else 0
-    max_daily = settings.PRO_DAILY_CONVERSIONS if is_pro else settings.FREE_DAILY_CONVERSIONS
+
+    def get_int(k: str, d: int) -> int:
+        v = get_setting_value(db, k, str(d))
+        return int(v) if v.isdigit() else d
+
+    free_daily = get_int("FREE_DAILY_CONVERSIONS", settings.FREE_DAILY_CONVERSIONS)
+    pro_daily = get_int("PRO_DAILY_CONVERSIONS", settings.PRO_DAILY_CONVERSIONS)
+    free_max_mb = get_int("FREE_MAX_FILE_MB", settings.FREE_MAX_FILE_MB)
+    pro_max_mb = get_int("PRO_MAX_FILE_MB", settings.PRO_MAX_FILE_MB)
+    free_max_pdf = get_int("FREE_MAX_PDF_PAGES", settings.FREE_MAX_PDF_PAGES)
+    pro_max_pdf = get_int("PRO_MAX_PDF_PAGES", settings.PRO_MAX_PDF_PAGES)
+
+    max_daily = pro_daily if is_pro else free_daily
     remaining = max(0, max_daily - conversions_used)
 
     return {
@@ -442,8 +454,8 @@ def get_current_user_profile(
             "conversionsUsedToday": conversions_used,
             "maxDailyConversions": max_daily,
             "conversionsRemaining": remaining,
-            "maxFileMb": settings.PRO_MAX_FILE_MB if is_pro else settings.FREE_MAX_FILE_MB,
-            "maxPdfPages": settings.PRO_MAX_PDF_PAGES if is_pro else settings.FREE_MAX_PDF_PAGES,
+            "maxFileMb": pro_max_mb if is_pro else free_max_mb,
+            "maxPdfPages": pro_max_pdf if is_pro else free_max_pdf,
             "hasAds": not is_pro,
             "batchProcessing": is_pro,
         }
