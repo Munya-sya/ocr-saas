@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
 import { Check, Zap, Sparkles, Shield, ArrowRight, AlertTriangle, X, Loader2, CreditCard, ExternalLink } from 'lucide-react';
-import { getCurrentUserProfile, cancelProSubscription, createCheckoutSession, createPortalSession } from '../../services/api';
+import { getCurrentUserProfile, cancelProSubscription, createCheckoutSession, createPortalSession, getPublicPlanConfig, PlanConfigResponse } from '../../services/api';
 import { User } from '../../types';
 
 function PricingContent() {
