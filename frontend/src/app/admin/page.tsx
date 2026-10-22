@@ -1128,13 +1128,13 @@ export default function AdminPage() {
 
                                         <div>
                                             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                                                Display Price <span className="text-slate-500">(e.g., 19.00)</span>
+                                                Display Price <span className="text-slate-500">(e.g., 5.00)</span>
                                             </label>
                                             <input
                                                 type="text"
-                                                value={settingsData?.STRIPE_DISPLAY_PRICE ?? '19.00'}
+                                                value={settingsData?.STRIPE_DISPLAY_PRICE ?? '5.00'}
                                                 onChange={e => setSettingsData(prev => prev ? { ...prev, STRIPE_DISPLAY_PRICE: e.target.value } : null)}
-                                                placeholder="19.00"
+                                                placeholder="5.00"
                                                 className="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
                                             />
                                             <span className="text-[10px] text-slate-500">Price rendered on /pricing</span>
@@ -1322,7 +1322,7 @@ export default function AdminPage() {
                                             <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1">
                                                 <div className="font-semibold text-emerald-400">3. Set Pricing</div>
                                                 <p className="text-slate-400 text-[10px]">
-                                                    Model: <strong>Standard</strong> &bull; Price: <code className="text-slate-200">$19.00</code> &bull; Period: <strong>Monthly (Recurring)</strong>.
+                                                    Model: <strong>Standard</strong> &bull; Price: <code className="text-slate-200">$5.00</code> &bull; Period: <strong>Monthly (Recurring)</strong>.
                                                 </p>
                                             </div>
 
@@ -2307,7 +2307,7 @@ export default function AdminPage() {
                                                 <ul className="text-slate-300 space-y-1 text-[11px]">
                                                     <li className="flex items-center gap-1.5 text-emerald-400 font-medium">
                                                         <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-                                                        Plan: <strong className="uppercase">Pro ($19/mo)</strong>
+                                                        Plan: <strong className="uppercase">Pro ($5/mo)</strong>
                                                     </li>
                                                     <li className="flex items-center gap-1.5 text-slate-400">
                                                         &bull; 100 conversions / day

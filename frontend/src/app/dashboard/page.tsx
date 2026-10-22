@@ -488,7 +488,7 @@ function DashboardContent() {
                                 ) : (
                                     <>
                                         <CreditCard className="w-4 h-4" />
-                                        Upgrade to Pro ($19/mo)
+                                        Upgrade to Pro ($5/mo)
                                     </>
                                 )}
                             </button>

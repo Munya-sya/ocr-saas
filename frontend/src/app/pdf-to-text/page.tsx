@@ -152,7 +152,7 @@ export default function PdfToTextPage() {
                                 <tr>
                                     <th className="p-3">Feature</th>
                                     <th className="p-3">Anonymous &amp; Free Tier</th>
-                                    <th className="p-3">Pro Tier ($19/mo)</th>
+                                    <th className="p-3">Pro Tier ($5/mo)</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">

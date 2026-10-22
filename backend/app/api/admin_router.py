@@ -192,7 +192,7 @@ def get_system_settings(
             "STRIPE_PUBLISHABLE_KEY": setting_map.get("STRIPE_PUBLISHABLE_KEY", getattr(settings, "STRIPE_PUBLISHABLE_KEY", "")),
             "STRIPE_WEBHOOK_SECRET": mask_secret(raw_webhook_secret, 6, 4) if raw_webhook_secret else "",
             "STRIPE_PRO_MONTHLY_PRICE_ID": setting_map.get("STRIPE_PRO_MONTHLY_PRICE_ID", getattr(settings, "STRIPE_PRO_MONTHLY_PRICE_ID", "")),
-            "STRIPE_DISPLAY_PRICE": setting_map.get("STRIPE_DISPLAY_PRICE", getattr(settings, "STRIPE_DISPLAY_PRICE", "19.00")),
+            "STRIPE_DISPLAY_PRICE": setting_map.get("STRIPE_DISPLAY_PRICE", getattr(settings, "STRIPE_DISPLAY_PRICE", "5.00")),
             "STRIPE_CURRENCY": setting_map.get("STRIPE_CURRENCY", getattr(settings, "STRIPE_CURRENCY", "USD")),
             "STRIPE_ALLOW_PROMO_CODES": setting_map.get("STRIPE_ALLOW_PROMO_CODES", str(getattr(settings, "STRIPE_ALLOW_PROMO_CODES", True))),
             "STRIPE_GRACE_PERIOD_DAYS": setting_map.get("STRIPE_GRACE_PERIOD_DAYS", str(getattr(settings, "STRIPE_GRACE_PERIOD_DAYS", 3))),

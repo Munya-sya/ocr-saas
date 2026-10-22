@@ -90,7 +90,7 @@ export default function AboutPage() {
                         <h2 className="text-xl font-bold">How We Support Free Document OCR</h2>
                     </div>
                     <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                        Rather than monetizing your private document data, ScanText is supported by clean, unobtrusive sponsor placements for free users and an affordable <strong>ScanText Pro ($19/mo)</strong> tier for power users who need 100-page batch processing, priority worker queues, and an ad-free interface.
+                        Rather than monetizing your private document data, ScanText is supported by clean, unobtrusive sponsor placements for free users and an affordable <strong>ScanText Pro ($5/mo)</strong> tier for power users who need 100-page batch processing, priority worker queues, and an ad-free interface.
                     </p>
                     <div className="pt-2">
                         <Link

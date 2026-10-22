@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: str = _vault_secrets.get("STRIPE_PUBLISHABLE_KEY") or os.getenv("STRIPE_PUBLISHABLE_KEY", "pk_test_placeholder_key")
     STRIPE_WEBHOOK_SECRET: str = _vault_secrets.get("STRIPE_WEBHOOK_SECRET") or os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_placeholder_secret")
     STRIPE_PRO_MONTHLY_PRICE_ID: str = _vault_secrets.get("STRIPE_PRO_MONTHLY_PRICE_ID") or os.getenv("STRIPE_PRO_MONTHLY_PRICE_ID", "price_ocr_pro_monthly_test")
-    STRIPE_DISPLAY_PRICE: str = os.getenv("STRIPE_DISPLAY_PRICE", "19.00")
+    STRIPE_DISPLAY_PRICE: str = os.getenv("STRIPE_DISPLAY_PRICE", "5.00")
     STRIPE_CURRENCY: str = os.getenv("STRIPE_CURRENCY", "USD")
     STRIPE_ALLOW_PROMO_CODES: bool = os.getenv("STRIPE_ALLOW_PROMO_CODES", "true").lower() == "true"
     STRIPE_GRACE_PERIOD_DAYS: int = int(os.getenv("STRIPE_GRACE_PERIOD_DAYS", "3"))

@@ -64,7 +64,7 @@ export default function TermsPage() {
                             <h2>3. Subscriptions, Billing &amp; Cancellations</h2>
                         </div>
                         <p>
-                            <strong>ScanText Pro</strong> is billed on a monthly recurring subscription basis ($19.00/month).
+                            <strong>ScanText Pro</strong> is billed on a monthly recurring subscription basis ($5.00/month).
                         </p>
                         <ul className="list-disc pl-6 space-y-1 text-xs sm:text-sm text-slate-600">
                             <li><strong>Billing Cycle:</strong> Subscriptions renew automatically each month on the calendar day corresponding to the commencement date.</li>

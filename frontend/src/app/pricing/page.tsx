@@ -298,7 +298,7 @@ function PricingContent() {
                                 ) : (
                                     <>
                                         <CreditCard className="w-4 h-4" />
-                                        Upgrade to Pro ($19/mo)
+                                        Upgrade to Pro ($5/mo)
                                     </>
                                 )}
                             </button>
@@ -324,7 +324,7 @@ function PricingContent() {
 
                         <h3 className="text-xl font-bold text-slate-900">Cancel Pro Subscription?</h3>
                         <p className="text-slate-600 text-sm mt-2 leading-relaxed">
-                            Are you sure you want to cancel your <strong>Pro Plan ($19/mo)</strong>? Your account will revert to the <strong>Free Tier</strong> (3 conversions/day, 10MB file limit, 5 PDF pages max).
+                            Are you sure you want to cancel your <strong>Pro Plan ($5/mo)</strong>? Your account will revert to the <strong>Free Tier</strong> (3 conversions/day, 10MB file limit, 5 PDF pages max).
                         </p>
 
                         <div className="mt-6 flex items-center gap-3">
