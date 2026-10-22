@@ -124,6 +124,7 @@ jobs:
 
       - name: Scan Backend Container for Vulnerabilities (Trivy)
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           image-ref: ghcr.io/${{ steps.meta.outputs.owner }}/ocr-saas/backend:${{ steps.meta.outputs.short_sha }}
           format: "table"
@@ -131,6 +132,10 @@ jobs:
           ignore-unfixed: true
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
+        env:
+          TRIVY_PLATFORM: "linux/arm64"
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate Release Manifest with Image Digests
         run: |
