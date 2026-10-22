@@ -1,3 +1,4 @@
+import { ScanTextLogo } from './ScanTextLogo';
 import React from 'react';
 import Link from 'next/link';
 import { FileText, ShieldCheck, Heart } from 'lucide-react';
@@ -10,11 +11,8 @@ export const Footer: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-8 text-xs">
                     {/* Brand Column */}
                     <div className="md:col-span-2 space-y-3">
-                        <Link href="/" className="flex items-center space-x-2 group">
-                            <div className="p-1.5 bg-blue-600 rounded-lg text-white">
-                                <FileText className="w-4 h-4" />
-                            </div>
-                            <span className="font-bold text-lg text-slate-900 tracking-tight">ScanText OCR</span>
+                        <Link href="/" className="inline-block group focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded-xl">
+                            <ScanTextLogo variant="footer" />
                         </Link>
                         <p className="text-slate-500 leading-relaxed max-w-sm">
                             Open, privacy-first Optical Character Recognition platform. We convert JPG, PNG, WEBP, and PDF documents into editable text with strict zero-retention ephemeral memory and automatic file destruction.

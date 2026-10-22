@@ -1,5 +1,7 @@
 'use client';
 
+import { ScanTextLogo } from './ScanTextLogo';
+
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { FileText, User, LogOut, LayoutDashboard, Tag, Shield, BookOpen, ChevronDown, Menu, X, Sparkles } from 'lucide-react';
@@ -35,17 +37,9 @@ export const Header: React.FC = () => {
     return (
         <header className="w-full border-b border-slate-200 bg-white/90 backdrop-blur-md sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                {/* Logo */}
-                <Link href="/" className="flex items-center space-x-3 group focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl p-1">
-                    <div className="p-2 bg-blue-600 rounded-xl text-white shadow-md shadow-blue-500/20 group-hover:bg-blue-700 transition-colors">
-                        <FileText className="w-6 h-6" />
-                    </div>
-                    <div className="flex items-center">
-                        <span className="font-bold text-xl text-slate-900 tracking-tight">ScanText</span>
-                        <span className="ml-2 text-xs font-semibold px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
-                            OCR
-                        </span>
-                    </div>
+                {/* Logo with Animated Optical Scan Brackets */}
+                <Link href="/" className="group focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded-xl p-1 transition-all">
+                    <ScanTextLogo variant="header" />
                 </Link>
 
                 {/* Desktop Navigation */}
