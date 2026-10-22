@@ -284,7 +284,7 @@ def test_stripe_connection(
             "connected": False,
             "mode": "test",
             "priceValid": False,
-            "error": "Stripe secret key is currently set to placeholder. Configure a real test key (sk_test_...) to connect."
+            "error": "Stripe secret key is currently set to placeholder. Paste your real Stripe secret key (sk_live_... or sk_test_...) and click Save Platform Settings first."
         }
 
     try:
