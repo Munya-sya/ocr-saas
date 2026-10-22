@@ -383,7 +383,7 @@ def test_sentry_connection(
     setting = db.query(SystemSetting).filter(SystemSetting.key == "SENTRY_DSN").first()
     dsn = setting.value if (setting and setting.value) else os.getenv("SENTRY_DSN", "")
 
-    if not dsn or "ingest.sentry.io" not in dsn:
+    if not dsn or "sentry.io" not in dsn:
         return {
             "success": False,
             "message": "Sentry DSN is unconfigured or invalid. Please save your Sentry DSN first."

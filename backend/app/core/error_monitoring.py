@@ -15,7 +15,7 @@ def init_error_monitoring():
         from app.db.models import SystemSetting
         db = SessionLocal()
         setting = db.query(SystemSetting).filter(SystemSetting.key == "SENTRY_DSN").first()
-        if setting and setting.value and not setting.value.startswith("...") and "ingest.sentry.io" in setting.value:
+        if setting and setting.value and not setting.value.startswith("...") and "sentry.io" in setting.value:
             sentry_dsn = setting.value.strip()
         db.close()
     except Exception as e:
