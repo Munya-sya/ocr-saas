@@ -52,7 +52,8 @@ def setup_contact_test_users():
 
 def test_public_contact_form_submission():
     """Test public submission of contact form."""
-    with patch("app.api.router.send_contact_confirmation_email") as mock_email:
+    with patch("app.api.router.send_contact_confirmation_email") as mock_email, \
+         patch("app.api.router.send_admin_new_inquiry_alert"):
         mock_email.return_value = (True, "OK")
 
         response = client.post(
@@ -110,7 +111,8 @@ def test_public_contact_form_validation():
 
 def test_public_contact_form_rate_limiting():
     """Test rate limiting on contact form (max 10 per hour per IP)."""
-    with patch("app.api.router.send_contact_confirmation_email"):
+    with patch("app.api.router.send_contact_confirmation_email"), \
+         patch("app.api.router.send_admin_new_inquiry_alert"):
         for i in range(12):
             resp = client.post(
                 "/api/v1/contact",

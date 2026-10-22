@@ -434,8 +434,11 @@ def get_current_user_profile(
     conversions_used = usage.conversion_count if usage else 0
 
     def get_int(k: str, d: int) -> int:
-        v = get_setting_value(db, k, str(d))
-        return int(v) if v.isdigit() else d
+        try:
+            v = get_setting_value(db, k, str(d))
+            return int(v)
+        except (ValueError, TypeError):
+            return d
 
     free_daily = get_int("FREE_DAILY_CONVERSIONS", settings.FREE_DAILY_CONVERSIONS)
     pro_daily = get_int("PRO_DAILY_CONVERSIONS", settings.PRO_DAILY_CONVERSIONS)

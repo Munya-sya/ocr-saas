@@ -72,22 +72,22 @@ def get_effective_frontend_url(request: Request, db: Session) -> str:
     """Dynamically determines the user's origin host (e.g. https://scantext.dev) for Stripe redirects."""
     # 1. Prefer database SystemSetting if explicitly set
     db_setting = get_effective_setting(db, "FRONTEND_URL", None)
-    if db_setting and not str(db_setting).startswith("http://localhost") and not str(db_setting).startswith("http://127.0.0.1"):
+    if db_setting and not str(db_setting).startswith("http://localhost") and not str(db_setting).startswith("http://127.0.0.1") and "testserver" not in str(db_setting):
         return str(db_setting).rstrip("/")
 
     # 2. Prefer browser Origin header if accessing from a real domain or IP
     origin = request.headers.get("origin")
-    if origin and not origin.startswith("http://localhost") and not origin.startswith("http://127.0.0.1"):
+    if origin and not origin.startswith("http://localhost") and not origin.startswith("http://127.0.0.1") and "testserver" not in origin:
         return origin.rstrip("/")
 
     # 3. Check proxy/tunnel headers (X-Forwarded-Host or Host)
     host = request.headers.get("x-forwarded-host") or request.headers.get("host")
     proto = request.headers.get("x-forwarded-proto", "https")
-    if host and "localhost" not in host and "127.0.0.1" not in host:
+    if host and "localhost" not in host and "127.0.0.1" not in host and "testserver" not in host:
         return f"{proto}://{host}".rstrip("/")
 
     # 4. Fallback to origin or settings.FRONTEND_URL
-    return origin.rstrip("/") if origin else settings.FRONTEND_URL.rstrip("/")
+    return origin.rstrip("/") if (origin and "testserver" not in origin) else settings.FRONTEND_URL.rstrip("/")
 
 
 @billing_router.post("/create-checkout-session")
